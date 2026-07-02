@@ -2,8 +2,23 @@
 # wrappedkey_v0 + inlinecrypt + aes-256-xts:aes-256-cts:v2
 # Цепочка: qseecomd → listeners.registered → gatekeeper → keymaster-4-0 → vold decrypt
 
+# Override keystore2 — стандартный крашится в recovery (SIGSEGV при старте)
+# Используем /tmp вместо /data/misc/keystore
+service keystore2 /system/bin/keystore2 /tmp/misc/keystore
+    user root
+    group root keystore readproc log
+    disabled
+    override
+    seclabel u:r:recovery:s0
+
+# Override servicemanager — не нужен в recovery, убираем автостарт
+service servicemanager /system/bin/servicemanager
+    disabled
+    override
+
 on property:ro.crypto.state=encrypted && property:ro.crypto.type=file
     install_keyring
+    mkdir /tmp/misc/keystore 0700 root root
 
 # Шаг 1: запуск qseecomd (QSEE daemon — нужен для TrustZone/keymaster)
 service vendor.qseecomd /vendor/bin/qseecomd
@@ -29,7 +44,7 @@ service keymaster-4-0 /vendor/bin/hw/android.hardware.keymaster@4.0-service-qti
     disabled
     seclabel u:r:recovery:s0
 
-# Keystore auth (нужен для некоторых версий vold)
+# Keystore auth
 service keystore_auth /system/bin/keystore_auth
     oneshot
     user system

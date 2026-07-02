@@ -36,6 +36,47 @@ ls /dev/block/mapper/ 2>&1 | grep -E 'vendor|system|super' >> "$LOG"
 mount | grep -E '/vendor|mapper' >> "$LOG"
 ls /vendor/etc/vintf/ 2>&1 | head -5 >> "$LOG"
 
+# === MOUNT /vendor + START hwservicemanager (для FBE decrypt) ===
+# mapper/vendor_a готов только сейчас (recovery активировал logical partitions)
+echo "=== vendor mount + hwservicemanager ===" >> "$LOG"
+if [ ! -f /vendor/etc/vintf/manifest.xml ] && [ ! -d /vendor/etc/vintf ]; then
+  echo "mounting /vendor from mapper/vendor_a:" >> "$LOG"
+  mount -t erofs -o ro /dev/block/mapper/vendor_a /vendor 2>&1 >> "$LOG"
+  echo "  mount result: $?" >> "$LOG"
+fi
+ls /vendor/bin/qseecomd /vendor/bin/hw/android.hardware.keymaster@4.0-service-qti 2>&1 >> "$LOG"
+# Проверяем smcinvoke device и модули (qseecomd их требует)
+echo "smcinvoke device:" >> "$LOG"
+ls -la /dev/smcinvoke 2>&1 >> "$LOG"
+echo "smcinvoke modules:" >> "$LOG"
+lsmod | grep -iE 'smcinvoke|qseecom_proxy|si_core|mem_object|tz_log' >> "$LOG"
+# Стартуем HAL сервисы для decrypt
+setprop ctl.start hwservicemanager 2>&1 >> "$LOG"
+sleep 1
+# Пробуем запустить qseecomd вручную с выводом ошибки (setcap/permission)
+echo "=== manual qseecomd run ===" >> "$LOG"
+chmod 660 /dev/smcinvoke 2>&1 >> "$LOG"
+chown system:drmrpc /dev/smcinvoke 2>&1 >> "$LOG"
+LD_LIBRARY_PATH=/vendor/lib64:/system/lib64 /vendor/bin/qseecomd > /persist/of_qseecomd.log 2>&1 &
+QPID=$!
+sleep 3
+echo "qseecomd manual pid=$QPID alive=$(kill -0 $QPID 2>/dev/null && echo yes || echo no)" >> "$LOG"
+echo "--- qseecomd stderr/stdout ---" >> "$LOG"
+cat /persist/of_qseecomd.log >> "$LOG"
+echo "--- end qseecomd output ---" >> "$LOG"
+# logcat — qseecomd основные ошибки туда
+echo "--- qseecomd logcat ---" >> "$LOG"
+logcat -d 2>/dev/null | grep -iE 'qseecom|QSEE|smcinvoke|listener' | tail -20 >> "$LOG"
+ps -A 2>/dev/null | grep -iE 'qseecomd' >> "$LOG"
+echo "listeners after manual=$(getprop vendor.sys.listeners.registered)" >> "$LOG"
+# Также через init
+start vendor.qseecomd 2>&1 >> "$LOG"
+setprop ctl.start vendor.qseecomd 2>&1 >> "$LOG"
+sleep 2
+echo "listeners.registered=$(getprop vendor.sys.listeners.registered)" >> "$LOG"
+echo "qseecomd svc=$(getprop init.svc.vendor.qseecomd)" >> "$LOG"
+ps -A 2>/dev/null | grep -iE 'qseecomd|keymaster|gatekeeper|hwservice' >> "$LOG"
+
 # === STAGE -4: thermal fallback (governor + freq limits) ===
 echo "=== thermal fallback ===" >> "$LOG"
 
@@ -275,5 +316,27 @@ ls -la /sys/class/udc/ 2>&1 >> /persist/of_udc.log
 echo "=== LATE DRIVERS ===" >> /persist/of_drivers.log
 ls /sys/bus/platform/drivers/msm-dwc3/ 2>&1 >> /persist/of_drivers.log
 ls -la /sys/devices/platform/soc/a600000.ssusb/ 2>&1 | grep -v supplier >> /persist/of_drivers.log
+
+# === CRYPTO MONITOR — ждём пока OFRP UI запустится и вызовет Set_Crypto_State ===
+echo "=== CRYPTO MONITOR (waiting for OFRP UI init) ===" >> "$LOG"
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  sleep 3
+  CS=$(getprop ro.crypto.state 2>/dev/null)
+  CT=$(getprop ro.crypto.type 2>/dev/null)
+  LS=$(getprop vendor.sys.listeners.registered 2>/dev/null)
+  CR=$(getprop crypto.ready 2>/dev/null)
+  T=$(cat /proc/uptime 2>/dev/null | cut -d. -f1)
+  echo "[$T s] crypto.state=$CS type=$CT listeners=$LS crypto.ready=$CR" >> "$LOG"
+  # Проверяем запустились ли сервисы decrypt
+  ps -A 2>/dev/null | grep -iE 'qseecomd|keymaster|gatekeeper' >> "$LOG"
+  # Если crypto.state уже encrypted — логируем детали
+  if [ "$CS" = "encrypted" ]; then
+    echo "  -> OFRP set crypto state! Checking services..." >> "$LOG"
+    getprop init.svc.vendor.qseecomd >> "$LOG"
+    getprop init.svc.keymaster-4-0 >> "$LOG"
+    getprop init.svc.gatekeeper-1-0 >> "$LOG"
+    break
+  fi
+done
 
 sync

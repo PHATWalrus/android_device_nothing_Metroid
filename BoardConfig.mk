@@ -125,9 +125,9 @@ BOARD_RAMDISK_USE_LZ4                    := true
 TW_LOAD_VENDOR_MODULES := "$(shell tr '\n' ' ' < $(DEVICE_PATH)/recovery/root/vendor/lib/modules/modules.load.recovery)"
 
 # Шифрование — отключаем для первого теста
-TW_INCLUDE_CRYPTO          := false
+TW_INCLUDE_CRYPTO          := true
 TW_INCLUDE_CRYPTO_FBE      := false
-TW_INCLUDE_FBE_METADATA_DECRYPT := false
+TW_INCLUDE_FBE_METADATA_DECRYPT := true
 
 # AVB
 BOARD_AVB_ENABLE := true
