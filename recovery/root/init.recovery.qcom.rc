@@ -1,0 +1,86 @@
+# import /init.recovery.qcom_decrypt.rc  # TODO: FBE decrypt — temporarily disabled
+
+on early-init
+    setprop sys.usb.controller a600000.dwc3
+
+# CPU governor — ставим walt как можно раньше, чтобы не жарить на performance
+# NP3 sched-walt kernel, доступен prefer walt → schedutil → powersave
+on early-init
+    write /sys/devices/system/cpu/cpufreq/policy0/scaling_governor walt
+    write /sys/devices/system/cpu/cpufreq/policy2/scaling_governor walt
+    write /sys/devices/system/cpu/cpufreq/policy5/scaling_governor walt
+    write /sys/devices/system/cpu/cpufreq/policy7/scaling_governor walt
+    # Ограничиваем max freq для снижения нагрева
+    # policy0 (little, LP), policy2 (little+), policy5 (mid), policy7 (prime)
+    write /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq 1500000
+    write /sys/devices/system/cpu/cpufreq/policy2/scaling_max_freq 2000000
+    write /sys/devices/system/cpu/cpufreq/policy5/scaling_max_freq 1800000
+    write /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq 2000000
+
+# Ключевое из стокового Nothing recovery.qcom.rc — активирует UDC
+on property:ro.boot.usbcontroller=*
+    setprop sys.usb.controller ${ro.boot.usbcontroller}
+    wait /sys/bus/platform/devices/${ro.boot.usb.dwc3_msm:-a600000.ssusb}/mode
+    write /sys/bus/platform/devices/${ro.boot.usb.dwc3_msm:-a600000.ssusb}/mode peripheral
+    wait /sys/class/udc/${ro.boot.usbcontroller} 1
+
+on init
+    export ANDROID_ROOT /system
+    export ANDROID_DATA /data
+    export EXTERNAL_STORAGE /sdcard
+
+    # Qualcomm UEFI / fastboot helpers
+    symlink /proc/self/fd/0 /dev/stdin
+    symlink /proc/self/fd/1 /dev/stdout
+    symlink /proc/self/fd/2 /dev/stderr
+
+    # Firmware mount points — создаём рано, mount в on fs
+    mkdir /vendor 0755 root shell
+    mkdir /vendor/firmware_mnt 0771 system system
+    mkdir /vendor/dsp 0755 root shell
+
+    # Монтируем /vendor из super ДО старта hwservicemanager
+    # dm-linear настраивается в first_stage_mount, mapper/vendor_a доступен
+    wait /dev/block/mapper/vendor_a 5
+    mount erofs /dev/block/mapper/vendor_a /vendor ro
+
+on fs
+    wait /dev/block/platform/soc/1d84000.ufshc
+    symlink /dev/block/platform/soc/1d84000.ufshc /dev/block/bootdevice
+    # Persist
+    mkdir /persist 0771 system system
+    mount ext4 /dev/block/bootdevice/by-name/persist /persist noatime nosuid nodev
+    restorecon_recursive /persist
+    # ADSP/CDSP firmware
+    mount vfat /dev/block/by-name/modem_a /vendor/firmware_mnt ro
+    mount ext4 /dev/block/by-name/dsp_a /vendor/dsp ro
+    # Debug USB gadget state
+    chmod 0755 /of_usbdbg.sh
+    write /persist/of_early_marker "reached-on-fs"
+    start of_usbdbg
+    # Thermal engine
+    start thermal-engine
+
+on property:ro.crypto.state=encrypted && property:ro.crypto.type=file
+    install_keyring
+
+# A/B slot switch support
+service gsi_tool /system/bin/gsid --help
+    disabled
+    oneshot
+
+# USB debug dumper — writes state to /persist/of_debug.log
+service of_usbdbg /system/bin/sh /of_usbdbg.sh
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+    user root
+    group root
+
+# Thermal engine v2 — CPU/GPU throttling чтобы не грелись в recovery
+service thermal-engine /vendor/bin/thermal-engine-v2
+    class main
+    user root
+    group root
+    seclabel u:r:recovery:s0
+    disabled

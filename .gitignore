@@ -1,0 +1,11 @@
+# Vendor binaries — проприетарные, не пушим
+recovery/root/vendor/bin/
+recovery/root/vendor/lib64/
+
+# Thermal engine config (из стока)
+recovery/root/vendor/etc/thermal-engine.conf
+
+# Backup файлы
+*.bak
+*.orig
+modules.load.recovery.bak
