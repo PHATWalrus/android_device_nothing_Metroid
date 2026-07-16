@@ -5,7 +5,7 @@
 LOG=/persist/of_debug.log
 DMESG_LOG=/persist/of_dmesg.log
 
-# === EARLY DMESG DUMP — до того как AVC-денаи забьют buffer ===
+# === EARLY DMESG DUMP - before AVC denials fill the buffer ===
 echo "=== EARLY DMESG (uptime $(cat /proc/uptime 2>/dev/null | cut -d. -f1)s) ===" > "$DMESG_LOG"
 dmesg 2>&1 >> "$DMESG_LOG"
 
@@ -36,8 +36,8 @@ ls /dev/block/mapper/ 2>&1 | grep -E 'vendor|system|super' >> "$LOG"
 mount | grep -E '/vendor|mapper' >> "$LOG"
 ls /vendor/etc/vintf/ 2>&1 | head -5 >> "$LOG"
 
-# === MOUNT /vendor + START hwservicemanager (для FBE decrypt) ===
-# mapper/vendor_a готов только сейчас (recovery активировал logical partitions)
+# === MOUNT /vendor + START hwservicemanager (for FBE decrypt) ===
+# mapper/vendor_a is only ready now (recovery has activated logical partitions)
 echo "=== vendor mount + hwservicemanager ===" >> "$LOG"
 if [ ! -f /vendor/etc/vintf/manifest.xml ] && [ ! -d /vendor/etc/vintf ]; then
   echo "mounting /vendor from mapper/vendor_a:" >> "$LOG"
@@ -45,15 +45,15 @@ if [ ! -f /vendor/etc/vintf/manifest.xml ] && [ ! -d /vendor/etc/vintf ]; then
   echo "  mount result: $?" >> "$LOG"
 fi
 ls /vendor/bin/qseecomd /vendor/bin/hw/android.hardware.keymaster@4.0-service-qti 2>&1 >> "$LOG"
-# Проверяем smcinvoke device и модули (qseecomd их требует)
+# Check the smcinvoke device and modules (qseecomd requires them)
 echo "smcinvoke device:" >> "$LOG"
 ls -la /dev/smcinvoke 2>&1 >> "$LOG"
 echo "smcinvoke modules:" >> "$LOG"
 lsmod | grep -iE 'smcinvoke|qseecom_proxy|si_core|mem_object|tz_log' >> "$LOG"
-# Стартуем HAL сервисы для decrypt
+# Start the HAL services for decrypt
 setprop ctl.start hwservicemanager 2>&1 >> "$LOG"
 sleep 1
-# Пробуем запустить qseecomd вручную с выводом ошибки (setcap/permission)
+# Try to start qseecomd manually and capture the error output (setcap/permission)
 echo "=== manual qseecomd run ===" >> "$LOG"
 chmod 660 /dev/smcinvoke 2>&1 >> "$LOG"
 chown system:drmrpc /dev/smcinvoke 2>&1 >> "$LOG"
@@ -64,12 +64,12 @@ echo "qseecomd manual pid=$QPID alive=$(kill -0 $QPID 2>/dev/null && echo yes ||
 echo "--- qseecomd stderr/stdout ---" >> "$LOG"
 cat /persist/of_qseecomd.log >> "$LOG"
 echo "--- end qseecomd output ---" >> "$LOG"
-# logcat — qseecomd основные ошибки туда
+# logcat - qseecomd main errors are logged there
 echo "--- qseecomd logcat ---" >> "$LOG"
 logcat -d 2>/dev/null | grep -iE 'qseecom|QSEE|smcinvoke|listener' | tail -20 >> "$LOG"
 ps -A 2>/dev/null | grep -iE 'qseecomd' >> "$LOG"
 echo "listeners after manual=$(getprop vendor.sys.listeners.registered)" >> "$LOG"
-# Также через init
+# Also through init
 start vendor.qseecomd 2>&1 >> "$LOG"
 setprop ctl.start vendor.qseecomd 2>&1 >> "$LOG"
 sleep 2
@@ -85,7 +85,7 @@ for p in /sys/devices/system/cpu/cpufreq/policy*; do
   [ -e "$p/scaling_governor" ] || continue
   NAME=$(basename $p)
   echo "before $p: $(cat $p/scaling_governor 2>/dev/null) avail: $(cat $p/scaling_available_governors 2>/dev/null)" >> "$LOG"
-  # Приоритет: walt (как в системе NP3) → schedutil → powersave
+  # Priority: walt (as on NP3) -> schedutil -> powersave
   for g in walt schedutil powersave; do
     if grep -qw "$g" "$p/scaling_available_governors" 2>/dev/null; then
       echo "$g" > "$p/scaling_governor" 2>&1 >> "$LOG"
@@ -93,7 +93,7 @@ for p in /sys/devices/system/cpu/cpufreq/policy*; do
       break
     fi
   done
-  # Лимит max_freq по кластеру (POSIX-совместимо, без ассоциативных массивов)
+  # Per-cluster max_freq limit (POSIX-compatible, no associative arrays)
   case "$NAME" in
     policy0) LIMIT=1516800 ;;  # little LP
     policy2) LIMIT=1958400 ;;  # little+
@@ -139,21 +139,21 @@ echo "before ffs.ready=$(getprop sys.usb.ffs.ready)" >> "$LOG"
 setprop sys.usb.ffs.ready 1 2>&1 >> "$LOG"
 echo "after set ffs.ready=$(getprop sys.usb.ffs.ready)" >> "$LOG"
 
-# Форс triger для binding: перезапишем sys.usb.config чтобы init re-parsed triggers
+# Force trigger for binding: rewrite sys.usb.config so init re-parses the triggers
 setprop sys.usb.config none 2>&1 >> "$LOG"
 sleep 0.5
 setprop sys.usb.config adb 2>&1 >> "$LOG"
 sleep 1
 
-# Прямой bind: если g1 существует, попробуем sами написать UDC
+# Direct bind: if g1 exists, try writing the UDC ourselves
 if [ -e /config/usb_gadget/g1 ]; then
   echo "=== direct g1 setup ===" >> "$LOG"
-  # Создаём configuration
+  # Create the configuration
   echo 0x18D1 > /config/usb_gadget/g1/idVendor 2>&1
   echo 0xD001 > /config/usb_gadget/g1/idProduct 2>&1
-  # Ссылка на functionfs
+  # Link the FunctionFS endpoint
   ln -sf /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f1 2>&1 >> "$LOG"
-  # Bind к UDC
+  # Bind to the UDC
   echo "trying to bind UDC:" >> "$LOG"
   echo "a600000.dwc3" > /config/usb_gadget/g1/UDC 2>&1 >> "$LOG"
   cat /config/usb_gadget/g1/UDC 2>&1 >> "$LOG"
@@ -165,11 +165,11 @@ fi
 echo "=== check firmware mounted ===" >> "$LOG"
 ls /vendor/firmware_mnt/image/adsp.mdt 2>&1 >> "$LOG"
 
-# Форс mount если ещё не смонтировано (init мог не смочь)
+# Force mount if it is not mounted yet (init may have failed)
 if [ ! -f /vendor/firmware_mnt/image/adsp.mdt ]; then
   echo "attempt manual mount modem_a partition:" >> "$LOG"
   mkdir -p /vendor/firmware_mnt 2>&1 >> "$LOG"
-  # A/B устройство — нужен явный slot suffix
+  # A/B device - explicit slot suffix is required
   mount -o ro -t vfat /dev/block/by-name/modem_a /vendor/firmware_mnt 2>&1 >> "$LOG"
   echo "mount result: $?" >> "$LOG"
   ls /vendor/firmware_mnt/image/ 2>&1 | head -5 >> "$LOG"
@@ -192,7 +192,7 @@ echo "state after rebind adsp:" >> "$LOG"
 cat /sys/class/remoteproc/remoteproc1/state 2>&1 >> "$LOG"
 cat /sys/class/remoteproc/remoteproc2/state 2>&1 >> "$LOG"
 
-# === STAGE 0: unload + reload redriver (после инициализации всех регуляторов) ===
+# === STAGE 0: unload + reload redriver (after all regulators are initialized) ===
 echo "=== reload redriver stack ===" >> "$LOG"
 rmmod nb7vpq904m 2>&1 >> "$LOG"
 rmmod redriver 2>&1 >> "$LOG"
@@ -203,7 +203,7 @@ sleep 1
 echo "after reload:" >> "$LOG"
 ls /sys/bus/i2c/devices/ 2>&1 | grep -i 5-001c >> "$LOG"
 
-# Пробую set orientation вручную + rebind (обход UCSI-supplier проблемы)
+# Try setting orientation manually + rebind (work around the UCSI supplier issue)
 echo "=== set orientation + role manually ===" >> "$LOG"
 echo "before orientation:" >> "$LOG"
 cat /sys/devices/platform/soc/a600000.ssusb/orientation 2>&1 >> "$LOG"
@@ -213,7 +213,7 @@ cat /sys/devices/platform/soc/a600000.ssusb/mode 2>&1 >> "$LOG"
 echo normal > /sys/devices/platform/soc/a600000.ssusb/orientation 2>&1 >> "$LOG"
 echo peripheral > /sys/devices/platform/soc/a600000.ssusb/mode 2>&1 >> "$LOG"
 
-# КЛЮЧЕВОЕ: писать role = device в usb_role_switch (в системе так делает UCSI)
+# KEY: write role = device to usb_role_switch (UCSI does this on the system)
 echo "=== set usb_role = device ===" >> "$LOG"
 ls /sys/class/usb_role/ 2>&1 >> "$LOG"
 for rs in /sys/class/usb_role/*/role; do
@@ -255,7 +255,7 @@ echo "remoteproc adsp state (final):" >> "$LOG"
 cat /sys/class/remoteproc/remoteproc1/state 2>&1 >> "$LOG"
 echo "" >> "$LOG"
 
-# Если UDC появился — сразу привяжем g1 к нему
+# If the UDC appears, bind g1 to it immediately
 if [ -e /sys/class/udc/a600000.dwc3 ]; then
   echo "=== UDC UP! Binding g1 to it ===" >> "$LOG"
   echo a600000.dwc3 > /config/usb_gadget/g1/UDC 2>&1 >> "$LOG"
@@ -306,7 +306,7 @@ for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   sleep 3
 done
 
-# === LATE DMESG (после всех sample'ов, для сравнения с early) ===
+# === LATE DMESG (after all samples, for comparison with early) ===
 echo "=== LATE DMESG (uptime $(cat /proc/uptime 2>/dev/null | cut -d. -f1)s) ===" > /persist/of_dmesg_late.log
 dmesg 2>&1 >> /persist/of_dmesg_late.log
 
@@ -317,7 +317,7 @@ echo "=== LATE DRIVERS ===" >> /persist/of_drivers.log
 ls /sys/bus/platform/drivers/msm-dwc3/ 2>&1 >> /persist/of_drivers.log
 ls -la /sys/devices/platform/soc/a600000.ssusb/ 2>&1 | grep -v supplier >> /persist/of_drivers.log
 
-# === CRYPTO MONITOR — ждём пока OFRP UI запустится и вызовет Set_Crypto_State ===
+# === CRYPTO MONITOR - wait until the OFRP UI starts and calls Set_Crypto_State ===
 echo "=== CRYPTO MONITOR (waiting for OFRP UI init) ===" >> "$LOG"
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
   sleep 3
@@ -327,9 +327,9 @@ for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
   CR=$(getprop crypto.ready 2>/dev/null)
   T=$(cat /proc/uptime 2>/dev/null | cut -d. -f1)
   echo "[$T s] crypto.state=$CS type=$CT listeners=$LS crypto.ready=$CR" >> "$LOG"
-  # Проверяем запустились ли сервисы decrypt
+  # Check whether the decrypt services started
   ps -A 2>/dev/null | grep -iE 'qseecomd|keymaster|gatekeeper' >> "$LOG"
-  # Если crypto.state уже encrypted — логируем детали
+  # If crypto.state is already encrypted, log the details
   if [ "$CS" = "encrypted" ]; then
     echo "  -> OFRP set crypto state! Checking services..." >> "$LOG"
     getprop init.svc.vendor.qseecomd >> "$LOG"

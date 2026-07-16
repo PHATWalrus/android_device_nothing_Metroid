@@ -1,4 +1,4 @@
-# Inherit from common AOSP product config — должно быть В НАЧАЛЕ
+# Inherit from common AOSP product config - must be at the top
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/base.mk)
 

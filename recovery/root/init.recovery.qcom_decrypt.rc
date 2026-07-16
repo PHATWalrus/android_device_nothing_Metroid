@@ -1,9 +1,9 @@
 # FBE decrypt services for Nothing Phone 3 (Metroid)
 # wrappedkey_v0 + inlinecrypt + aes-256-xts:aes-256-cts:v2
-# Цепочка: qseecomd → listeners.registered → gatekeeper → keymaster-4-0 → vold decrypt
+# Chain: qseecomd -> listeners.registered -> gatekeeper -> keymaster-4-0 -> vold decrypt
 
-# Override keystore2 — стандартный крашится в recovery (SIGSEGV при старте)
-# Используем /tmp вместо /data/misc/keystore
+# Override keystore2 - the stock one crashes in recovery (SIGSEGV at startup)
+# Use /tmp instead of /data/misc/keystore
 service keystore2 /system/bin/keystore2 /tmp/misc/keystore
     user root
     group root keystore readproc log
@@ -11,7 +11,7 @@ service keystore2 /system/bin/keystore2 /tmp/misc/keystore
     override
     seclabel u:r:recovery:s0
 
-# Override servicemanager — не нужен в recovery, убираем автостарт
+# Override servicemanager - not needed in recovery, disable autostart
 service servicemanager /system/bin/servicemanager
     disabled
     override
@@ -20,7 +20,7 @@ on property:ro.crypto.state=encrypted && property:ro.crypto.type=file
     install_keyring
     mkdir /tmp/misc/keystore 0700 root root
 
-# Шаг 1: запуск qseecomd (QSEE daemon — нужен для TrustZone/keymaster)
+# Step 1: start qseecomd (QSEE daemon - needed for TrustZone/keymaster)
 service vendor.qseecomd /vendor/bin/qseecomd
     user root
     group root drmrpc
@@ -28,7 +28,7 @@ service vendor.qseecomd /vendor/bin/qseecomd
     disabled
     seclabel u:r:recovery:s0
 
-# Шаг 2: gatekeeper (запускается после listeners.registered=true)
+# Step 2: gatekeeper (starts after listeners.registered=true)
 service gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper-service-qti
     user root
     group root
@@ -36,7 +36,7 @@ service gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper-service-qti
     disabled
     seclabel u:r:recovery:s0
 
-# Шаг 3: keymaster 4.0 (wrappedkey unwrap)
+# Step 3: keymaster 4.0 (wrappedkey unwrap)
 service keymaster-4-0 /vendor/bin/hw/android.hardware.keymaster@4.0-service-qti
     user root
     group root drmrpc
@@ -58,7 +58,7 @@ service keystore /system/bin/keystore /tmp/misc/keystore
     disabled
     seclabel u:r:recovery:s0
 
-# Цепочка запуска
+# Launch chain
 on property:ro.crypto.state=encrypted && property:ro.crypto.type=file
     start vendor.qseecomd
 
@@ -66,7 +66,7 @@ on property:vendor.sys.listeners.registered=true
     start gatekeeper-1-0
     start keymaster-4-0
 
-# После decrypt — останавливаем сервисы
+# After decrypt - stop the services
 on property:twrp.all.users.decrypted=true
     setprop crypto.ready 0
     stop vendor.qseecomd

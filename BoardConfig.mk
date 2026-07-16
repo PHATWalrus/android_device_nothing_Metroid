@@ -22,7 +22,7 @@ TARGET_BOARD_PLATFORM := sun
 TARGET_BOOTLOADER_BOARD_NAME := Metroid
 TARGET_NO_BOOTLOADER := true
 
-# Kernel — GKI 2.0, prebuilt из vendor_boot
+# Kernel - GKI 2.0, prebuilt from vendor_boot
 BOARD_KERNEL_IMAGE_NAME := Image
 TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt/kernel
 TARGET_PREBUILT_DTB    := $(DEVICE_PATH)/prebuilt/dtb.img
@@ -36,11 +36,11 @@ BOARD_BOOT_HEADER_VERSION := 4
 BOARD_MKBOOTIMG_ARGS += --header_version $(BOARD_BOOT_HEADER_VERSION)
 BOARD_MKBOOTIMG_ARGS += --dtb $(TARGET_PREBUILT_DTB)
 
-# GKI 2.0 — init_boot содержит generic ramdisk (отключено: OFRP 12.1 не умеет init_boot)
+# GKI 2.0 - init_boot contains the generic ramdisk (disabled: OFRP 12.1 does not support init_boot)
 # BOARD_INIT_BOOT_HEADER_VERSION := 4
 # BOARD_MKBOOTIMG_INIT_ARGS += --header_version $(BOARD_INIT_BOOT_HEADER_VERSION)
 
-# bootconfig (из реального устройства)
+# bootconfig (from the real device)
 BOARD_KERNEL_CMDLINE := \
     video=vfb:640x400,bpp=32,memsize=3072000 \
     console=ttyMSM0,115200n8 \
@@ -56,14 +56,14 @@ BOARD_BOOTCONFIG := \
     androidboot.serialconsole=0 \
     androidboot.selinux=permissive
 
-# Разделы — реальные размеры
+# Partitions - real sizes
 BOARD_BOOTIMAGE_PARTITION_SIZE            := 100663296
 BOARD_INIT_BOOT_IMAGE_PARTITION_SIZE      := 8388608
 BOARD_VENDOR_BOOTIMAGE_PARTITION_SIZE     := 100663296
 BOARD_RECOVERYIMAGE_PARTITION_SIZE        := 104857600
 BOARD_DTBOIMG_PARTITION_SIZE              := 52428800
 
-# Super / динамические разделы
+# Super / dynamic partitions
 BOARD_SUPER_PARTITION_SIZE := 9663676416
 BOARD_SUPER_PARTITION_GROUPS := nothing_dynamic_partitions
 BOARD_NOTHING_DYNAMIC_PARTITIONS_PARTITION_LIST := \
@@ -76,7 +76,7 @@ BOARD_NOTHING_DYNAMIC_PARTITIONS_PARTITION_LIST := \
 
 BOARD_NOTHING_DYNAMIC_PARTITIONS_SIZE := 9659482112
 
-# Файловые системы — system/vendor EROFS, data F2FS
+# Filesystems - system/vendor EROFS, data F2FS
 BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE      := erofs
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE      := erofs
 BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE     := erofs
@@ -92,7 +92,7 @@ TARGET_COPY_OUT_PRODUCT                 := product
 TARGET_COPY_OUT_SYSTEM_EXT              := system_ext
 TARGET_COPY_OUT_ODM                     := odm
 
-# UFS — реальный путь контроллера
+# UFS - actual controller path
 TARGET_RECOVERY_DEVICE_DIRS += $(DEVICE_PATH)
 
 # A/B
@@ -114,17 +114,17 @@ BOARD_HAS_NO_SELECT_BUTTON           := true
 BOARD_SUPPRESS_SECURE_ERASE          := true
 BOARD_USES_RECOVERY_AS_BOOT          := false
 
-# Имитируем структуру стокового recovery.img:
-# - KERNEL_SZ=0 (bootloader берёт kernel из boot_a)
-# - ramdisk сжат lz4_legacy (как сток)
-# - наш ramdisk будет наложен поверх vendor_boot ramdisk при recovery-режиме
+# Mimic the stock recovery.img layout:
+# - KERNEL_SZ=0 (bootloader takes the kernel from boot_a)
+# - ramdisk compressed with lz4_legacy (same as stock)
+# - our ramdisk is layered on top of the vendor_boot ramdisk in recovery mode
 BOARD_EXCLUDE_KERNEL_FROM_RECOVERY_IMAGE := true
 BOARD_RAMDISK_USE_LZ4                    := true
 
-# Vendor modules для recovery — читаем актуальный список из стокового modules.load.recovery
+# Vendor modules for recovery - read the current list from the stock modules.load.recovery
 TW_LOAD_VENDOR_MODULES := "$(shell tr '\n' ' ' < $(DEVICE_PATH)/recovery/root/vendor/lib/modules/modules.load.recovery)"
 
-# Шифрование — отключаем для первого теста
+# Encryption - disabled for the first test
 TW_INCLUDE_CRYPTO          := true
 TW_INCLUDE_CRYPTO_FBE      := false
 TW_INCLUDE_FBE_METADATA_DECRYPT := true
@@ -145,7 +145,7 @@ TW_INCLUDE_NTFS_3G         := true
 TWRP_INCLUDE_LOGCAT        := true
 TARGET_USES_LOGD           := true
 
-# Дисплей (1260x2800, density 480)
+# Display (1260x2800, density 480)
 TW_BRIGHTNESS_PATH         := "/sys/class/backlight/panel0-backlight/brightness"
 TW_CUSTOM_CPU_TEMP_PATH    := "/sys/class/thermal/thermal_zone6/temp"
 TW_MAX_BRIGHTNESS          := 8191
@@ -153,7 +153,7 @@ TW_DEFAULT_BRIGHTNESS      := 2048
 TW_NO_SCREEN_BLANK         := true
 TW_NO_LOCKSCREEN           := true
 
-# Internal storage = /data/media/0 (UFS, нет физической microSD)
+# Internal storage = /data/media/0 (UFS, no physical microSD)
 TW_HAS_MTP                 := true
 TW_INTERNAL_STORAGE_PATH   := "/data/media/0"
 TW_INTERNAL_STORAGE_MOUNT_POINT := "data"

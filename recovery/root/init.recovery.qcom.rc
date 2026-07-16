@@ -3,21 +3,21 @@ import /init.recovery.qcom_decrypt.rc
 on early-init
     setprop sys.usb.controller a600000.dwc3
 
-# CPU governor — ставим walt как можно раньше, чтобы не жарить на performance
-# NP3 sched-walt kernel, доступен prefer walt → schedutil → powersave
+# CPU governor - set walt as early as possible to avoid running hot on performance
+# NP3 sched-walt kernel, prefer walt -> schedutil -> powersave
 on early-init
     write /sys/devices/system/cpu/cpufreq/policy0/scaling_governor walt
     write /sys/devices/system/cpu/cpufreq/policy2/scaling_governor walt
     write /sys/devices/system/cpu/cpufreq/policy5/scaling_governor walt
     write /sys/devices/system/cpu/cpufreq/policy7/scaling_governor walt
-    # Ограничиваем max freq для снижения нагрева
+    # Limit max freq to reduce heat
     # policy0 (little, LP), policy2 (little+), policy5 (mid), policy7 (prime)
     write /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq 1500000
     write /sys/devices/system/cpu/cpufreq/policy2/scaling_max_freq 2000000
     write /sys/devices/system/cpu/cpufreq/policy5/scaling_max_freq 1800000
     write /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq 2000000
 
-# Ключевое из стокового Nothing recovery.qcom.rc — активирует UDC
+# Key part from stock Nothing recovery.qcom.rc - enables UDC
 on property:ro.boot.usbcontroller=*
     setprop sys.usb.controller ${ro.boot.usbcontroller}
     wait /sys/bus/platform/devices/${ro.boot.usb.dwc3_msm:-a600000.ssusb}/mode
@@ -34,7 +34,7 @@ on init
     symlink /proc/self/fd/1 /dev/stdout
     symlink /proc/self/fd/2 /dev/stderr
 
-    # Firmware mount points — создаём рано, mount в on fs
+    # Firmware mount points - create early, mount in on fs
     mkdir /vendor 0755 root shell
     mkdir /vendor/firmware_mnt 0771 system system
     mkdir /vendor/dsp 0755 root shell
@@ -49,7 +49,7 @@ on fs
     # ADSP/CDSP firmware
     mount vfat /dev/block/by-name/modem_a /vendor/firmware_mnt ro
     mount ext4 /dev/block/by-name/dsp_a /vendor/dsp ro
-    # Debug USB gadget state + vendor mount + hwservicemanager (mapper готов только к запуску скрипта)
+    # Debug USB gadget state + vendor mount + hwservicemanager (mapper is only ready when the script starts)
     chmod 0755 /of_usbdbg.sh
     write /persist/of_early_marker "reached-on-fs"
     start of_usbdbg
@@ -72,7 +72,7 @@ service of_usbdbg /system/bin/sh /of_usbdbg.sh
     user root
     group root
 
-# Thermal engine v2 — CPU/GPU throttling чтобы не грелись в recovery
+# Thermal engine v2 - CPU/GPU throttling to keep it cool in recovery
 service thermal-engine /vendor/bin/thermal-engine-v2
     class main
     user root
