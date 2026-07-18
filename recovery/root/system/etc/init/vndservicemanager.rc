@@ -1,7 +1,0 @@
-# Override — disabled autostart, started manually after /vendor mount in on fs
-service vndservicemanager /system/bin/vndservicemanager /dev/vndbinder
-    user root
-    group root
-    writepid /dev/cpuset/system-background/tasks
-    disabled
-    seclabel u:r:recovery:s0

@@ -1,57 +1,25 @@
-# Nothing Phone 3 (Metroid) - recovery.fstab
-# Platform: sun (Snapdragon 8s Gen 4)
-# VAB, GKI 2.0, EROFS system/vendor, F2FS userdata
-# Source: fstab.default from vendor_boot
+/system         erofs   /dev/block/mapper/system       flags=display="System";slotselect;logical;fsflags="ro";mounttodecrypt
+/system_ext     erofs   /dev/block/mapper/system_ext   flags=display="System Ext";slotselect;logical;fsflags="ro"
+/product        erofs   /dev/block/mapper/product      flags=display="Product";slotselect;logical;fsflags="ro"
+/vendor         erofs   /dev/block/mapper/vendor       flags=display="Vendor";slotselect;logical;fsflags="ro";mounttodecrypt
+/odm            erofs   /dev/block/mapper/odm          flags=display="ODM";slotselect;logical;fsflags="ro"
+/vendor_dlkm    erofs   /dev/block/mapper/vendor_dlkm  flags=display="Vendor DLKM";slotselect;logical;fsflags="ro";mounttodecrypt
 
-# Dynamic partitions (match stock layout; keep recovery-friendly labels)
-/system         erofs   /dev/block/mapper/system_a              flags=display="System";slotselect;logical
-/system         ext4    /dev/block/mapper/system_a              flags=display="System";slotselect;logical
-/system_ext     erofs   /dev/block/mapper/system_ext_a          flags=display="System Ext";slotselect;logical
-/system_ext     ext4    /dev/block/mapper/system_ext_a          flags=display="System Ext";slotselect;logical
-/product        erofs   /dev/block/mapper/product_a             flags=display="Product";slotselect;logical
-/product        ext4    /dev/block/mapper/product_a             flags=display="Product";slotselect;logical
-/vendor         erofs   /dev/block/mapper/vendor_a              flags=display="Vendor";slotselect;logical
-/vendor         ext4    /dev/block/mapper/vendor_a              flags=display="Vendor";slotselect;logical
-/odm            erofs   /dev/block/mapper/odm_a                 flags=display="ODM";slotselect;logical
-/odm            ext4    /dev/block/mapper/odm_a                 flags=display="ODM";slotselect;logical
-/vendor_dlkm    erofs   /dev/block/mapper/vendor_dlkm_a         flags=display="Vendor DLKM";slotselect;logical
-/vendor_dlkm    ext4    /dev/block/mapper/vendor_dlkm_a         flags=display="Vendor DLKM";slotselect;logical
-# /system_dlkm is not present in Metroid's partition table
+/boot           emmc    /dev/block/by-name/boot         flags=display="Boot";slotselect
+/init_boot      emmc    /dev/block/by-name/init_boot    flags=display="Init Boot";slotselect
+/vendor_boot    emmc    /dev/block/by-name/vendor_boot  flags=display="Vendor Boot";slotselect
+/recovery       emmc    /dev/block/by-name/recovery     flags=display="Recovery";slotselect
+/dtbo           emmc    /dev/block/by-name/dtbo         flags=display="DTBO";slotselect
 
-# Boot partitions
-/boot           emmc    /dev/block/by-name/boot                 flags=display="Boot";slotselect
-/init_boot      emmc    /dev/block/by-name/init_boot            flags=display="Init Boot";slotselect
-/vendor_boot    emmc    /dev/block/by-name/vendor_boot          flags=display="Vendor Boot";slotselect
-/recovery       emmc    /dev/block/by-name/recovery             flags=display="Recovery";slotselect
-/dtbo           emmc    /dev/block/by-name/dtbo                 flags=display="DTBO";slotselect
-
-# Metadata (stock ext4)
-/metadata       ext4    /dev/block/by-name/metadata             flags=display="Metadata";wipeingui
-
-# Data (F2FS + FBE - initially without decryption)
+/metadata       f2fs    /dev/block/by-name/metadata             flags=display="Metadata";wipeingui
 /data           f2fs    /dev/block/bootdevice/by-name/userdata  flags=display="Data";fileencryption=aes-256-xts:aes-256-cts:v2+inlinecrypt_optimized+wrappedkey_v0;keydirectory=/metadata/vold/metadata_encryption;wrappedkey
-
-# Persist
 /persist        ext4    /dev/block/bootdevice/by-name/persist   flags=display="Persist";backup=1
-
-# Misc
 /misc           emmc    /dev/block/bootdevice/by-name/misc      flags=display="Misc"
 
-# Firmware - the kernel firmware loader looks in the standard paths /vendor/firmware_mnt and /vendor/dsp
-/vendor/firmware_mnt    vfat    /dev/block/bootdevice/by-name/modem     flags=display="Modem";slotselect
-/vendor/dsp             ext4    /dev/block/bootdevice/by-name/dsp       flags=display="DSP";slotselect
-/vendor/bt_firmware     vfat    /dev/block/bootdevice/by-name/bluetooth flags=display="BT Firmware";slotselect
-
-# Super (for flashing)
-/super          emmc    /dev/block/bootdevice/by-name/super     flags=display="Super";backup=1
-
-# Nothing-specific
-/nt_log         ext4    /dev/block/by-name/nt_log               flags=display="NT Log";backup=1
-/mnt/vendor/nt_log ext4  /dev/block/by-name/nt_log               flags=display="Vendor NT Log";backup=1
-
-# Qcom vendor partitions
-/qmcs           vfat    /dev/block/bootdevice/by-name/qmcs      flags=display="QMCS"
-/spunvm         vfat    /dev/block/bootdevice/by-name/spunvm    flags=display="SPUNVM"
-
-# External storage - USB OTG only (there is no physical microSD slot)
-/usb_otg        vfat    /devices/platform/soc/*.ssusb/*.dwc3/xhci-hcd.*.auto flags=display="USB OTG";storage;wipeingui;removable
+/vendor/firmware_mnt  vfat  /dev/block/bootdevice/by-name/modem  flags=display="Modem";slotselect
+/vendor/dsp           ext4  /dev/block/bootdevice/by-name/dsp    flags=display="DSP";slotselect
+/super          emmc   /dev/block/bootdevice/by-name/super       flags=display="Super";backup=1
+/nt_log         ext4   /dev/block/by-name/nt_log                  flags=display="NT Log";backup=1
+/qmcs           vfat   /dev/block/bootdevice/by-name/qmcs         flags=display="QMCS"
+/spunvm         vfat   /dev/block/bootdevice/by-name/spunvm       flags=display="SPUNVM"
+/usb_otg        vfat   /devices/platform/soc/*.ssusb/*.dwc3/xhci-hcd.*.auto  flags=display="USB OTG";storage;wipeingui;removable

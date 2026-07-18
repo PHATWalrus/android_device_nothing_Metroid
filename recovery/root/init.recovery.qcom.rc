@@ -1,81 +1,69 @@
-import /init.recovery.qcom_decrypt.rc
+import /init.recovery.metroid.crypto.rc
 
 on early-init
+    setprop sys.usb.configfs 1
+    wait /sys/fs/selinux/enforce
+    write /sys/fs/selinux/enforce 0
+    write /proc/sys/kernel/firmware_config/force_sysfs_fallback 1
+    chmod 0755 /system/bin/servicemanager_a16
+
+on init
+    setprop sys.usb.configfs 1
     setprop sys.usb.controller a600000.dwc3
+    export ANDROID_ROOT /system
+    export ANDROID_DATA /data
+    export EXTERNAL_STORAGE /sdcard
+    symlink /proc/self/fd/0 /dev/stdin
+    symlink /proc/self/fd/1 /dev/stdout
+    symlink /proc/self/fd/2 /dev/stderr
+    mkdir /vendor 0755 root shell
+    mkdir /vendor/firmware_mnt 0771 system system
+    mkdir /vendor/firmware 0755 root shell
+    mkdir /vendor/dsp 0755 root shell
+    mkdir /tmp/metroid-firmware 0755 root shell
+    symlink /tmp/metroid-firmware /firmware
 
-# CPU governor - set walt as early as possible to avoid running hot on performance
-# NP3 sched-walt kernel, prefer walt -> schedutil -> powersave
-on early-init
-    write /sys/devices/system/cpu/cpufreq/policy0/scaling_governor walt
-    write /sys/devices/system/cpu/cpufreq/policy2/scaling_governor walt
-    write /sys/devices/system/cpu/cpufreq/policy5/scaling_governor walt
-    write /sys/devices/system/cpu/cpufreq/policy7/scaling_governor walt
-    # Limit max freq to reduce heat
-    # policy0 (little, LP), policy2 (little+), policy5 (mid), policy7 (prime)
-    write /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq 1500000
-    write /sys/devices/system/cpu/cpufreq/policy2/scaling_max_freq 2000000
-    write /sys/devices/system/cpu/cpufreq/policy5/scaling_max_freq 1800000
-    write /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq 2000000
-
-# Key part from stock Nothing recovery.qcom.rc - enables UDC
 on property:ro.boot.usbcontroller=*
-    setprop sys.usb.controller ${ro.boot.usbcontroller}
     wait /sys/bus/platform/devices/${ro.boot.usb.dwc3_msm:-a600000.ssusb}/mode
     write /sys/bus/platform/devices/${ro.boot.usb.dwc3_msm:-a600000.ssusb}/mode peripheral
     wait /sys/class/udc/${ro.boot.usbcontroller} 1
 
-on init
-    export ANDROID_ROOT /system
-    export ANDROID_DATA /data
-    export EXTERNAL_STORAGE /sdcard
-
-    # Qualcomm UEFI / fastboot helpers
-    symlink /proc/self/fd/0 /dev/stdin
-    symlink /proc/self/fd/1 /dev/stdout
-    symlink /proc/self/fd/2 /dev/stderr
-
-    # Firmware mount points - create early, mount in on fs
-    mkdir /vendor 0755 root shell
-    mkdir /vendor/firmware_mnt 0771 system system
-    mkdir /vendor/dsp 0755 root shell
-
 on fs
     wait /dev/block/platform/soc/1d84000.ufshc
     symlink /dev/block/platform/soc/1d84000.ufshc /dev/block/bootdevice
-    # Persist
     mkdir /persist 0771 system system
     mount ext4 /dev/block/bootdevice/by-name/persist /persist noatime nosuid nodev
     restorecon_recursive /persist
-    # ADSP/CDSP firmware
-    mount vfat /dev/block/by-name/modem_a /vendor/firmware_mnt ro
-    mount ext4 /dev/block/by-name/dsp_a /vendor/dsp ro
-    # Debug USB gadget state + vendor mount + hwservicemanager (mapper is only ready when the script starts)
     chmod 0755 /of_usbdbg.sh
+    chmod 0755 /system/bin/metroid-bootlog.sh
+    chmod 0755 /system/bin/metroid-crypto-init.sh
+    chmod 0755 /system/bin/metroid-fbe-monitor.sh
+    chmod 0755 /system/bin/metroid-haptics-init.sh
+    chmod 0755 /system/bin/metroid-keymint-prepare.sh
+    chmod 0755 /system/bin/metroid-platform-init.sh
     write /persist/of_early_marker "reached-on-fs"
     start of_usbdbg
-    # Thermal engine
-    start thermal-engine
+    start metroid-platform-prepare
+    start metroid-vendor-prepare
 
-on property:ro.crypto.state=encrypted && property:ro.crypto.type=file
-    install_keyring
-
-# A/B slot switch support
-service gsi_tool /system/bin/gsid --help
-    disabled
-    oneshot
-
-# USB debug dumper — writes state to /persist/of_debug.log
 service of_usbdbg /system/bin/sh /of_usbdbg.sh
     disabled
     oneshot
-    seclabel u:r:recovery:s0
     user root
     group root
+    seclabel u:r:recovery:s0
 
-# Thermal engine v2 - CPU/GPU throttling to keep it cool in recovery
-service thermal-engine /vendor/bin/thermal-engine-v2
-    class main
+service metroid-bootlog /system/bin/sh /system/bin/metroid-bootlog.sh
+    disabled
+    oneshot
     user root
     group root
     seclabel u:r:recovery:s0
+
+service metroid-platform-prepare /system/bin/sh /system/bin/metroid-platform-init.sh
+    class core
     disabled
+    oneshot
+    user root
+    group root system
+    seclabel u:r:recovery:s0

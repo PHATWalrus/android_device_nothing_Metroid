@@ -1,69 +1,50 @@
 DEVICE_PATH := device/nothing/Metroid
 
-# Architecture
+# OrangeFox compatibility.
+ALLOW_MISSING_DEPENDENCIES := true
+BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
+BUILD_BROKEN_PLUGIN_VALIDATION := \
+    soong-libaosprecovery_defaults \
+    soong-libguitwrp_defaults \
+    soong-libminuitwrp_defaults \
+    soong-vold_defaults
+PRODUCT_PRECOMPILED_SEPOLICY := false
+
+# 64-bit only.
 TARGET_ARCH := arm64
-TARGET_ARCH_VARIANT := armv8-2a
+TARGET_ARCH_VARIANT := armv8-a
 TARGET_CPU_ABI := arm64-v8a
 TARGET_CPU_ABI2 :=
 TARGET_CPU_VARIANT := generic
-TARGET_CPU_VARIANT_RUNTIME := kryo
+TARGET_KERNEL_ARCH := arm64
+TARGET_KERNEL_HEADER_ARCH := arm64
 
-TARGET_2ND_ARCH := arm
-TARGET_2ND_ARCH_VARIANT := armv8-2a
-TARGET_2ND_CPU_ABI := armeabi-v7a
-TARGET_2ND_CPU_ABI2 := armeabi
-TARGET_2ND_CPU_VARIANT := generic
-TARGET_2ND_CPU_VARIANT_RUNTIME := kryo
-
-# Platform
+# SM8735 (sun), UFS, UEFI.
+PRODUCT_PLATFORM := sun
 TARGET_BOARD_PLATFORM := sun
-
-# Bootloader
-TARGET_BOOTLOADER_BOARD_NAME := Metroid
+QCOM_BOARD_PLATFORMS += sun
+TARGET_BOOTLOADER_BOARD_NAME := sun
 TARGET_NO_BOOTLOADER := true
+TARGET_USES_UEFI := true
 
-# Kernel - GKI 2.0, prebuilt from vendor_boot
-BOARD_KERNEL_IMAGE_NAME := Image
-TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt/kernel
-TARGET_PREBUILT_DTB    := $(DEVICE_PATH)/prebuilt/dtb.img
-
-BOARD_KERNEL_BASE        := 0x00000000
-BOARD_KERNEL_PAGESIZE    := 4096
-BOARD_RAMDISK_OFFSET     := 0x01000000
-BOARD_KERNEL_TAGS_OFFSET := 0x00000100
-
+# Header v4; recovery has no kernel or DTB.
 BOARD_BOOT_HEADER_VERSION := 4
+BOARD_KERNEL_IMAGE_NAME := Image
+BOARD_KERNEL_PAGESIZE := 4096
 BOARD_MKBOOTIMG_ARGS += --header_version $(BOARD_BOOT_HEADER_VERSION)
-BOARD_MKBOOTIMG_ARGS += --dtb $(TARGET_PREBUILT_DTB)
+BOARD_MKBOOTIMG_ARGS += --pagesize $(BOARD_KERNEL_PAGESIZE)
+BOARD_RAMDISK_USE_LZ4 := true
+BOARD_EXCLUDE_KERNEL_FROM_RECOVERY_IMAGE := true
+BOARD_USES_GENERIC_KERNEL_IMAGE := true
+TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt/kernel
 
-# GKI 2.0 - init_boot contains the generic ramdisk (disabled: OFRP 12.1 does not support init_boot)
-# BOARD_INIT_BOOT_HEADER_VERSION := 4
-# BOARD_MKBOOTIMG_INIT_ARGS += --header_version $(BOARD_INIT_BOOT_HEADER_VERSION)
+# Stock image sizes.
+BOARD_BOOTIMAGE_PARTITION_SIZE := 100663296
+BOARD_INIT_BOOT_IMAGE_PARTITION_SIZE := 8388608
+BOARD_VENDOR_BOOTIMAGE_PARTITION_SIZE := 100663296
+BOARD_RECOVERYIMAGE_PARTITION_SIZE := 104857600
+BOARD_DTBOIMG_PARTITION_SIZE := 52428800
 
-# bootconfig (from the real device)
-BOARD_KERNEL_CMDLINE := \
-    video=vfb:640x400,bpp=32,memsize=3072000 \
-    console=ttyMSM0,115200n8 \
-    bootconfig
-
-BOARD_BOOTCONFIG := \
-    androidboot.hardware=qcom \
-    androidboot.memcg=1 \
-    androidboot.usbcontroller=a600000.dwc3 \
-    androidboot.load_modules_parallel=false \
-    androidboot.hypervisor.protected_vm.supported=true \
-    androidboot.vendor.qspa=true \
-    androidboot.serialconsole=0 \
-    androidboot.selinux=permissive
-
-# Partitions - real sizes
-BOARD_BOOTIMAGE_PARTITION_SIZE            := 100663296
-BOARD_INIT_BOOT_IMAGE_PARTITION_SIZE      := 8388608
-BOARD_VENDOR_BOOTIMAGE_PARTITION_SIZE     := 100663296
-BOARD_RECOVERYIMAGE_PARTITION_SIZE        := 104857600
-BOARD_DTBOIMG_PARTITION_SIZE              := 52428800
-
-# Super / dynamic partitions
 BOARD_SUPER_PARTITION_SIZE := 9663676416
 BOARD_SUPER_PARTITION_GROUPS := nothing_dynamic_partitions
 BOARD_NOTHING_DYNAMIC_PARTITIONS_PARTITION_LIST := \
@@ -73,91 +54,133 @@ BOARD_NOTHING_DYNAMIC_PARTITIONS_PARTITION_LIST := \
     vendor \
     odm \
     vendor_dlkm
-
 BOARD_NOTHING_DYNAMIC_PARTITIONS_SIZE := 9659482112
 
-# Filesystems - system/vendor EROFS, data F2FS
-BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE      := erofs
-BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE      := erofs
-BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE     := erofs
-BOARD_SYSTEM_EXTIMAGE_FILE_SYSTEM_TYPE  := erofs
-BOARD_ODMIMAGE_FILE_SYSTEM_TYPE         := erofs
-TARGET_USERIMAGES_USE_EXT4              := true
-TARGET_USERIMAGES_USE_F2FS              := true
-BOARD_EROFS_COMPRESSOR                  := lz4
-BOARD_EROFS_PCLUSTER_SIZE               := 262144
-
-TARGET_COPY_OUT_VENDOR                  := vendor
-TARGET_COPY_OUT_PRODUCT                 := product
-TARGET_COPY_OUT_SYSTEM_EXT              := system_ext
-TARGET_COPY_OUT_ODM                     := odm
-
-# UFS - actual controller path
-TARGET_RECOVERY_DEVICE_DIRS += $(DEVICE_PATH)
-
-# A/B
+# A/B and Virtual A/B.
 AB_OTA_UPDATER := true
 AB_OTA_PARTITIONS += \
     boot \
     dtbo \
-    vendor_boot \
+    init_boot \
+    odm \
     recovery \
+    system_dlkm \
     vbmeta \
-    vbmeta_system \
-    vbmeta_vendor
+    vbmeta_vendor \
+    vendor \
+    vendor_boot \
+    vendor_dlkm
+TW_VIRTUAL_AB_COMPRESSION := true
 
-# Recovery
-TARGET_RECOVERY_PIXEL_FORMAT         := RGBX_8888
-TARGET_RECOVERY_QCOM_RTC_FIX         := true
-BOARD_HAS_LARGE_FILESYSTEM           := true
-BOARD_HAS_NO_SELECT_BUTTON           := true
-BOARD_SUPPRESS_SECURE_ERASE          := true
-BOARD_USES_RECOVERY_AS_BOOT          := false
+# Partitions and filesystems.
+BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
+TARGET_COPY_OUT_VENDOR := vendor
+TARGET_COPY_OUT_PRODUCT := product
+TARGET_COPY_OUT_SYSTEM_EXT := system_ext
+TARGET_COPY_OUT_ODM := odm
+TARGET_COPY_OUT_VENDOR_DLKM := vendor_dlkm
+TARGET_COPY_OUT_SYSTEM_DLKM := system_dlkm
+BOARD_USES_VENDOR_DLKMIMAGE := true
+BOARD_USES_SYSTEM_DLKMIMAGE := true
+BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_SYSTEM_EXTIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_ODMIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_VENDOR_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_SYSTEM_DLKMIMAGE_FILE_SYSTEM_TYPE := erofs
+BOARD_USERDATAIMAGE_FILE_SYSTEM_TYPE := f2fs
+BOARD_METADATAIMAGE_FILE_SYSTEM_TYPE := f2fs
+TARGET_USERIMAGES_USE_EXT4 := true
+TARGET_USERIMAGES_USE_F2FS := true
 
-# Mimic the stock recovery.img layout:
-# - KERNEL_SZ=0 (bootloader takes the kernel from boot_a)
-# - ramdisk compressed with lz4_legacy (same as stock)
-# - our ramdisk is layered on top of the vendor_boot ramdisk in recovery mode
-BOARD_EXCLUDE_KERNEL_FROM_RECOVERY_IMAGE := true
-BOARD_RAMDISK_USE_LZ4                    := true
-
-# Vendor modules for recovery - read the current list from the stock modules.load.recovery
-TW_LOAD_VENDOR_MODULES := "$(shell tr '\n' ' ' < $(DEVICE_PATH)/recovery/root/vendor/lib/modules/modules.load.recovery)"
-
-# Encryption - disabled for the first test
-TW_INCLUDE_CRYPTO          := true
-TW_INCLUDE_CRYPTO_FBE      := false
-TW_INCLUDE_FBE_METADATA_DECRYPT := true
-
-# AVB
+# Verified boot.
 BOARD_AVB_ENABLE := true
-BOARD_AVB_MAKE_VBMETA_IMAGE_ARGS += --flags 3
 
-# TWRP
-TW_THEME                   := portrait_hdpi
-TW_SCREEN_BLANK_ON_BOOT    := true
-TW_INPUT_BLACKLIST         := "hbtp_vm"
-TW_USE_TOOLBOX             := true
-TW_INCLUDE_REPACKTOOLS     := true
-TW_INCLUDE_RESETPROP       := true
-TW_INCLUDE_LIBRESETPROP    := true
-TW_INCLUDE_NTFS_3G         := true
-TWRP_INCLUDE_LOGCAT        := true
-TARGET_USES_LOGD           := true
+# Recovery.
+TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery.fstab
+TARGET_RECOVERY_DEVICE_DIRS += $(DEVICE_PATH)
+TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
+TARGET_RECOVERY_QCOM_RTC_FIX := true
+TW_EXCLUDE_DEFAULT_USB_INIT := true
+BOARD_HAS_LARGE_FILESYSTEM := true
+BOARD_HAS_NO_SELECT_BUTTON := true
+BOARD_SUPPRESS_SECURE_ERASE := true
+BOARD_USES_RECOVERY_AS_BOOT := false
 
-# Display (1260x2800, density 480)
-TW_BRIGHTNESS_PATH         := "/sys/class/backlight/panel0-backlight/brightness"
-TW_CUSTOM_CPU_TEMP_PATH    := "/sys/class/thermal/thermal_zone6/temp"
-TW_MAX_BRIGHTNESS          := 8191
-TW_DEFAULT_BRIGHTNESS      := 2048
-TW_NO_SCREEN_BLANK         := true
-TW_NO_LOCKSCREEN           := true
+# Android 16 FBE test profile; export METROID_ENABLE_FBE=false for the boot-only fallback.
+METROID_ENABLE_FBE ?= true
+ifeq ($(METROID_ENABLE_FBE),true)
+TW_INCLUDE_CRYPTO := true
+TW_INCLUDE_CRYPTO_FBE := true
+TW_INCLUDE_FBE_METADATA_DECRYPT := true
+else
+TW_INCLUDE_CRYPTO := false
+TW_INCLUDE_CRYPTO_FBE := false
+TW_INCLUDE_FBE_METADATA_DECRYPT := false
+endif
+BOARD_USES_METADATA_PARTITION := true
+TW_USE_FSCRYPT_POLICY := 2
+TW_ENABLE_FS_COMPRESSION := true
 
-# Internal storage = /data/media/0 (UFS, no physical microSD)
-TW_HAS_MTP                 := true
-TW_INTERNAL_STORAGE_PATH   := "/data/media/0"
+TW_INCLUDE_OMAPI := false
+TW_EXCLUDE_MTP := true
+
+TW_MODULE_BLACKLIST := aw9380x|aw_press
+TW_LOAD_VENDOR_MODULES := "$(shell grep -vE '$(TW_MODULE_BLACKLIST)' $(DEVICE_PATH)/recovery/root/vendor/lib/modules/modules.load.recovery | tr '\n' ' ')"
+
+# Platform release is source-owned; retain stock SPLs.
+PLATFORM_SECURITY_PATCH := 2026-06-01
+VENDOR_SECURITY_PATCH := 2026-04-05
+BOOT_SECURITY_PATCH := 2025-09-05
+
+# Tools.
+TW_INCLUDE_FASTBOOTD := true
+TW_INCLUDE_REPACKTOOLS := true
+TW_INCLUDE_RESETPROP := true
+TW_INCLUDE_LIBRESETPROP := true
+TW_INCLUDE_LPDUMP := true
+TW_INCLUDE_LPTOOLS := true
+TW_RECOVERY_ADDITIONAL_RELINK_BINARY_FILES += $(TARGET_OUT_EXECUTABLES)/service
+TW_INCLUDE_NTFS_3G := true
+TW_INCLUDE_FUSE_EXFAT := true
+TW_INCLUDE_FUSE_NTFS := true
+TW_USE_TOOLBOX := true
+TW_USE_DMCTL := true
+TW_EXCLUDE_APEX := true
+TWRP_INCLUDE_LOGCAT := true
+TARGET_USES_LOGD := true
+
+# Display and input.
+TW_THEME := portrait_hdpi
+TW_FRAMERATE := 120
+TW_SCREEN_BLANK_ON_BOOT := true
+TW_BRIGHTNESS_PATH := "/sys/class/backlight/panel0-backlight/brightness"
+TW_CUSTOM_CPU_TEMP_PATH := "/tmp/metroid_cpu_temp"
+TW_MAX_BRIGHTNESS := 8191
+TW_DEFAULT_BRIGHTNESS := 2048
+TW_INPUT_BLACKLIST := "aw9380x_0_ch11"
+TW_CUSTOM_POWER_BUTTON := 116
+TW_USE_LEGACY_BATTERY_SERVICES := true
+TW_NO_SCREEN_BLANK := true
+TW_NO_LOCKSCREEN := true
+TW_NO_HAPTICS := false
+TW_SUPPORT_INPUT_AIDL_HAPTICS := true
+TW_SUPPORT_INPUT_AIDL_HAPTICS_FQNAME := IVibrator/default
+TW_SUPPORT_INPUT_AIDL_HAPTICS_FIX_OFF := true
+
+# Storage.
+RECOVERY_SDCARD_ON_DATA := true
+TW_INTERNAL_STORAGE_PATH := "/data/media/0"
 TW_INTERNAL_STORAGE_MOUNT_POINT := "data"
-TW_EXTERNAL_STORAGE_PATH   := "/usb_otg"
-TW_EXTERNAL_STORAGE_MOUNT_POINT := "usb_otg"
+TW_EXTERNAL_STORAGE_PATH := "/storage/usbotg"
+TW_EXTERNAL_STORAGE_MOUNT_POINT := "usbotg"
+FOX_USE_DATA_RECOVERY_FOR_SETTINGS := 1
 
-TW_DEVICE_VERSION := 0-Metroid
+# Properties.
+TARGET_SYSTEM_PROP += $(DEVICE_PATH)/system.prop
+TARGET_VENDOR_PROP += $(DEVICE_PATH)/vendor.prop
+TW_OVERRIDE_SYSTEM_PROPS := \
+    "ro.build.date.utc;ro.bootimage.build.date.utc=ro.build.date.utc;ro.build.product;ro.build.fingerprint=ro.system.build.fingerprint;ro.build.version.incremental;ro.product.device=ro.product.system.device;ro.product.model=ro.product.system.model;ro.product.name=ro.product.system.name"
+
+TW_DEVICE_VERSION := 0.1-Metroid

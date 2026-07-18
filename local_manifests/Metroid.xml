@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+    <!-- OrangeFox's fox_14.1 sync tool owns recovery, vold and se_omapi. -->
+    <remote name="Metroid-github" fetch="https://github.com/" />
+
+    <project name="PHATWalrus/android_device_nothing_Metroid"
+             path="device/nothing/Metroid"
+             remote="Metroid-github"
+             revision="main" />
+</manifest>

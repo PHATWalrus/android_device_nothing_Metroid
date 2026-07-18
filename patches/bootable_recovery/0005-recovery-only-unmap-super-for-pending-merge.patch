@@ -1,0 +1,26 @@
+diff --git a/partitionmanager.cpp b/partitionmanager.cpp
+--- a/partitionmanager.cpp
++++ b/partitionmanager.cpp
+@@ -4897,9 +4897,19 @@ bool TWPartitionManager::Check_Pending_Merges() {
+ 		return false;
+ 	}
+ 
+-	if (!Unmap_Super_Devices()) {
+-		LOGERR("Unable to unmap dynamic partitions.\n");
+-		return false;
++	auto update_state = sm->GetUpdateState();
++	bool merge_may_be_required =
++		update_state == android::snapshot::UpdateState::Unverified ||
++		update_state == android::snapshot::UpdateState::Merging ||
++		update_state == android::snapshot::UpdateState::MergeFailed;
++	if (merge_may_be_required) {
++		if (!Unmap_Super_Devices()) {
++			LOGERR("Unable to unmap dynamic partitions for a pending merge.\n");
++			return false;
++		}
++	} else {
++		LOGINFO("Snapshot state %d does not require a pre-wipe super unmap.\n",
++			static_cast<int>(update_state));
+ 	}
+ 
+ 	auto callback = [&]() -> void {

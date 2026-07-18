@@ -1,0 +1,20 @@
+diff --git a/gui/gui.cpp b/gui/gui.cpp
+--- a/gui/gui.cpp
++++ b/gui/gui.cpp
+@@ -656,9 +656,13 @@ static void loopTimer(int input_timeout_ms)
+ 			return;
+ 		}
+ 
+-		// We need to sleep some period time microseconds
+-		//unsigned int sleepTime = 33333 -(diff.tv_nsec / 1000);
+-		//usleep(sleepTime); // removed so we can scan for input
++		long remaining_ns = timeout - diff.tv_nsec;
++		if (remaining_ns > 0) {
++			constexpr long kMaxInputPollSleepUs = 1000;
++			long sleep_us = remaining_ns / 1000;
++			if (sleep_us > kMaxInputPollSleepUs) sleep_us = kMaxInputPollSleepUs;
++			if (sleep_us > 0) usleep(sleep_us);
++		}
+ 		input_timeout_ms = 0;
+ 	} while (1);
+ }

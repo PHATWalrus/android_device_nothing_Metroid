@@ -1,0 +1,7 @@
+on boot
+    start recovery
+
+service recovery /system/bin/recovery
+    socket recovery stream 422 system system
+    setenv LD_LIBRARY_PATH /system/lib64_a16:/system/lib64
+    seclabel u:r:recovery:s0

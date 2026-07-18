@@ -1,11 +1,12 @@
-# Vendor binaries - proprietary, do not commit
-recovery/root/vendor/bin/
-recovery/root/vendor/lib64/
+# Build output.
+/out/
+*.log
+*.img.new
 
-# Thermal engine config (from stock)
-recovery/root/vendor/etc/thermal-engine.conf
+# Windows ADS metadata.
+*:Zone.Identifier
 
-# Backup files
-*.bak
-*.orig
-modules.load.recovery.bak
+# Local notes.
+/KT.md
+/docs/
+/BUILDING.md

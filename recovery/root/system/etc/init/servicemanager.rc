@@ -1,0 +1,9 @@
+on init
+    start servicemanager
+
+service servicemanager /system/bin/servicemanager_a16
+    user root
+    group root readproc
+    setenv LD_LIBRARY_PATH /system/lib64_a16:/system/lib64
+    disabled
+    seclabel u:r:recovery:s0

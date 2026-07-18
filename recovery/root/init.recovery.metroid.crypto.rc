@@ -1,0 +1,124 @@
+on early-init
+    setprop keystore.boot_level 0
+
+on property:metroid.vendor.ready=1
+    start metroid-haptics-prepare
+
+on property:metroid.haptics.ready=1
+    start vendor.qti.vibrator
+
+on property:metroid.vendor.ready=1 && property:ro.recovery.metroid.fbe=1 && property:ro.crypto.state=encrypted && property:ro.crypto.type=file
+    chmod 0660 /dev/qseecom
+    chown system drmrpc /dev/qseecom
+    chmod 0660 /dev/smcinvoke
+    chown system drmrpc /dev/smcinvoke
+    chmod 0644 /dev/dma_heap/qcom,qseecom
+    chown system system /dev/dma_heap/qcom,qseecom
+    chmod 0644 /dev/dma_heap/qcom,qseecom-ta
+    chown system system /dev/dma_heap/qcom,qseecom-ta
+    chmod 0600 /dev/0:0:0:49476
+    chown system system /dev/0:0:0:49476
+    mkdir /tmp/misc 0700 root root
+    mkdir /tmp/misc/keystore 0700 root root
+    setprop keystore.boot_level 0
+    setprop crypto.metroid.active 1
+    start vendor.qseecomd
+    start vendor.qseecom-service
+
+on property:vendor.sys.listeners.registered=true && property:crypto.metroid.active=1
+    start metroid-keymint-prepare
+
+on property:crypto.metroid.keymint_props_ready=1 && property:crypto.metroid.active=1
+    start vendor.keymint-qti
+    start vendor.gatekeeper-default
+    start metroid-fbe-monitor
+
+on property:crypto.metroid.keymint_ready=1
+    start keystore2
+
+service metroid-vendor-prepare /system/bin/sh /system/bin/metroid-crypto-init.sh
+    class core
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+service metroid-fbe-monitor /system/bin/sh /system/bin/metroid-fbe-monitor.sh
+    class core
+    user root
+    group root
+    setenv LD_LIBRARY_PATH /system/lib64_a16:/system/lib64
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+service metroid-keymint-prepare /system/bin/sh /system/bin/metroid-keymint-prepare.sh
+    class core
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+service metroid-haptics-prepare /system/bin/sh /system/bin/metroid-haptics-init.sh
+    class core
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+service vendor.qseecomd /vendor/bin/qseecomd
+    class core
+    socket notify-topology stream 660 system drmrpc
+    user root
+    group root drmrpc system
+    setenv LD_LIBRARY_PATH /system/lib64_a16:/vendor/lib64:/system/lib64
+    disabled
+    seclabel u:r:recovery:s0
+
+service vendor.qseecom-service /vendor/bin/hw/vendor.qti.hardware.qseecom@1.0-service
+    class hal
+    user system
+    group system drmrpc
+    setenv LD_LIBRARY_PATH /persist/decrypt_libs:/vendor/lib64:/vendor/lib64/hw
+    disabled
+    seclabel u:r:recovery:s0
+
+service vendor.keymint-qti /vendor/bin/hw/android.hardware.security.keymint-service-qti
+    class early_hal
+    user system
+    group system drmrpc
+    setenv LD_LIBRARY_PATH /persist/decrypt_libs:/vendor/lib64:/vendor/lib64/hw
+    disabled
+    seclabel u:r:recovery:s0
+
+service vendor.gatekeeper-default /vendor/bin/hw/android.hardware.gatekeeper-service-qti
+    class early_hal
+    user system
+    group system
+    setenv LD_LIBRARY_PATH /persist/decrypt_libs:/vendor/lib64:/vendor/lib64/hw
+    disabled
+    interface aidl android.hardware.gatekeeper.IGatekeeper/default
+    seclabel u:r:recovery:s0
+
+service keystore2 /system/bin/keystore2 /tmp/misc/keystore
+    class early_hal
+    user root
+    group root keystore readproc log
+    setenv LD_LIBRARY_PATH /system/lib64_a16:/system/lib64
+    rlimit memlock unlimited unlimited
+    disabled
+    seclabel u:r:recovery:s0
+
+service vendor.qti.vibrator /vendor/bin/hw/vendor.qti.hardware.vibrator.service
+    class hal
+    user system
+    group system input
+    setenv LD_LIBRARY_PATH /persist/decrypt_libs:/vendor/lib64:/vendor/lib64/hw
+    setenv RICHTAP_DEVICE_PATH /dev/aw86927_haptic
+    setenv ENV_RICHTAP_CONFIG_PATH /vendor/etc/aac_richtap.config
+    disabled
+    interface aidl android.hardware.vibrator.IVibrator/default
+    seclabel u:r:recovery:s0

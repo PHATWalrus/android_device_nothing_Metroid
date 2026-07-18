@@ -1,93 +1,178 @@
-# np3-devtree
+# OrangeFox for Nothing Phone (3) (Metroid)
 
+Recovery-only device tree for the Nothing Phone (3), model A024, targeting
+OrangeFox fox_14.1 directly. The supplied firmware is Android 16 on Qualcomm
+SM8735 (sun), with a 6.6 GKI kernel, dedicated 100 MiB recovery_a/recovery_b
+partitions, Virtual A/B, EROFS logical partitions, and F2FS metadata/userdata.
 
+The tree builds successfully in the official fox_14.1 source. ADB, the recovery
+UI, QSEECom, AIDL KeyMint/Gatekeeper, metadata encryption, device-encrypted
+storage, and the vibrator permission path have been exercised on physical
+hardware. Credential unlock, MTP, fastbootd, installer behavior, slot changes,
+and a complete regression matrix still require validation.
 
-## Getting started
+## Source setup
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Use OrangeFox's official sync wrapper for a direct OrangeFox build. It starts
+from the supported 14.1 TWRP minimal base, installs the fox_14.1 recovery and
+vendor sources, applies the branch's AIDL Weaver support, and clones native
+se_omapi. Initializing only a plain TWRP manifest does not create a complete
+OrangeFox build tree.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+    mkdir -p ~/OrangeFox_sync
+    cd ~/OrangeFox_sync
+    git clone https://gitlab.com/OrangeFox/sync.git
+    cd sync
+    ./orangefox_sync.sh --branch 14.1 --path /absolute/path/to/fox_14.1
 
-## Add your files
+Then install the device tree:
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+    cd /absolute/path/to/fox_14.1
+    mkdir -p device/nothing
+    git clone https://github.com/PHATWalrus/android_device_nothing_Metroid.git device/nothing/Metroid
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/wisevessel/np3-devtree.git
-git branch -M main
-git push -uf origin main
-```
+The optional local_manifests/Metroid.xml contains only the device project.
+OrangeFox's sync tool owns bootable/recovery, system/vold, vendor/recovery,
+and external/se_omapi; the local manifest deliberately does not override them.
 
-## Integrate with your tools
+## Extract the stock files
 
-* [Set up project integrations](https://gitlab.com/wisevessel/np3-devtree/-/settings/integrations)
+The extraction manifest contains 82 exact Metroid firmware inputs, including
+the Android 16 crypto/TEE closure, QSEE RPMB listener plugins, Richtap config,
+and the stock task_profiles.json required by OrangeFox 14.1 logcat.
+Every input is SHA-256 verified. No Xiaomi, OnePlus, Nubia, or other
+reference-device binary is used.
 
-## Collaborate with your team
+From Windows PowerShell:
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+    & .\tools\extract-files.ps1 'C:\Users\harsh\Downloads\Compressed\MIO-KITCHEN-4.1.9-v2-win\metroid'
 
-## Test and Deploy
+From Linux/WSL:
 
-Use the built-in continuous integration in GitLab.
+    bash tools/extract-files.sh /path/to/extracted/metroid
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+The generated proprietary directory is intentionally visible to Git. Review
+redistribution requirements before publishing firmware-derived files.
 
-***
+## Verify source-side crypto support
 
-# Editing this README
+Run the helper after syncing:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+    bash device/nothing/Metroid/tools/apply-source-patches.sh
 
-## Suggestions for a good README
+On the current official fox_14.1 sync, it should report that AIDL Gatekeeper,
+AIDL Weaver, and native OMAPI packaging are already supplied by the source.
+The reviewed patch files remain as an idempotent fallback for a compatible
+plain TeamWin 14 tree; they are not blindly applied over OrangeFox.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+TW_INCLUDE_OMAPI is enabled. OrangeFox builds and starts the OMAPI bridge, while
+Metroid's init starts the secure-element and Thales StrongBox/Weaver services
+only for the JPN SKU, matching the stock VINTF declaration.
 
-## Name
-Choose a self-explaining name for your project.
+## OrangeFox configuration
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+vendorsetup.sh contains only environment variables that OrangeFox requires to
+be exported before building:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+- FOX_BUILD_DEVICE=Metroid
+- FOX_AB_DEVICE=1
+- FOX_VIRTUAL_AB_DEVICE=1
+- FOX_VANILLA_BUILD=1
+- verified aliases for Metroid, metroid, and A024
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+fox_Metroid.mk contains the supported OF_* make variables: the 20:9 canvas,
+cutout/status-bar geometry, dedicated A/B recovery flag, LZ4 ramdisk,
+prebuilt-kernel declaration, and logical-partition tools.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+The tree intentionally does not enable experimental vbmeta patching, guessed
+super sizes, forced metadata wiping, post-format bind mounts, MIUI features,
+KernelSU add-ons, or a fabricated Keymaster 4.1 default. Metroid exposes AIDL
+KeyMint v3, so the old Keymaster-version override would be incorrect.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## Build
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+See `BUILDING.md` for the complete direct OrangeFox setup and troubleshooting
+guide. The short form is:
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Build on a case-sensitive Linux filesystem:
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+    cd /absolute/path/to/fox_14.1
+    export FOX_BUILD_DEVICE=Metroid
+    source build/envsetup.sh
+    lunch twrp_Metroid-ap2a-eng
+    bash device/nothing/Metroid/tools/apply-source-patches.sh
+    mka recoveryimage 2>&1 | tee build-Metroid.log
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Expected artifacts are under:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+    out/target/product/Metroid/recovery.img
+    out/target/product/Metroid/OrangeFox-*.img
+    out/target/product/Metroid/OrangeFox-*.zip
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+The exact OrangeFox filename is generated by the synced vendor tree. The raw
+recovery image must not exceed 104857600 bytes; an AVB-footed image padded to
+exactly that partition size is valid. It
+must be header v4 with an LZ4 ramdisk and no embedded kernel or DTB, matching
+stock's dedicated recovery image contract.
 
-## License
-For open source projects, say how it is licensed.
+## First-device test and rollback
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Keep a verified stock recovery image before testing. Because Metroid's stock
+recovery image contains no kernel, fastboot boot recovery.img is not assumed
+to work. On an unlocked device, flash only the current recovery slot:
+
+    fastboot getvar current-slot
+    fastboot flash recovery_a out/target/product/Metroid/recovery.img
+    # Use recovery_b instead when the active slot is b.
+    fastboot reboot recovery
+
+Restore the matching stock slot immediately if recovery does not boot:
+
+    fastboot flash recovery_a /path/to/stock/recovery.img
+    fastboot reboot
+
+Do not flash boot, vendor_boot, dtbo, super, or vbmeta during the first test.
+Do not use the OrangeFox installer ZIP, format data/metadata, change slots,
+or reflash recovery from the UI until the raw-image boot and mount tests pass.
+
+## Test matrix
+
+1. Boot/UI: 1260x2800 output, 20:9 layout, cutout-safe status bar, brightness,
+   blank/unblank, battery percentage, and no haptic-related crash.
+2. Input: FocalTech touch covers the full panel with correct axes.
+3. USB: ADB shell/push/pull, MTP, sideload, OTG, and role switching.
+4. Partitions: current slot, recovery target, logical EROFS mounts, F2FS
+   metadata, fastbootd, and no writes during snapshot merge.
+5. Decryption: no lock, then PIN, pattern, and password; verify User 0 and
+   secondary-user visibility without modifying data.
+6. OrangeFox: settings persistence, raw image flash target, installer ZIP on
+   both slots, reflash-current-recovery behavior, and vanilla/non-MIUI paths.
+7. Recovery operations: disposable backup/restore and formatting only after
+   all earlier non-destructive tests and stock rollback are proven.
+
+Collect on every failure:
+
+    adb pull /tmp/recovery.log
+    adb pull /tmp/logcat.log
+    adb pull /tmp/metroid-crypto-init.log
+    adb shell dmesg > dmesg.txt
+    adb shell getprop > getprop.txt
+    adb shell cat /proc/mounts > mounts.txt
+    adb shell ls -l /dev/block/by-name /dev/block/mapper > blocks.txt
+    adb shell ps -A > processes.txt
+    adb shell service list > services.txt
+
+## Known limits
+
+- Metadata and device-encrypted FBE mount successfully through the stock QSEE,
+  RPMB, KeyMint, Gatekeeper, and keystore2 chain. Credential-encrypted user
+  storage still needs PIN/pattern/password coverage.
+- JPN eSE/OMAPI/Weaver behavior cannot be proven from firmware files alone.
+- Dynamic-partition size and group values are set from the Metroid LP layout.
+- Display, touch, USB, charging, slot changes, OrangeFox installer logic, and
+  recovery reflash behavior require hardware validation.
+- The AIDL vibrator service and Richtap permission path are enabled; UI haptic
+  behavior still needs a cold-boot regression test with the final image.
+
+See docs/BRINGUP_PLAN.md for the evidence, architecture, failure modes, and
+release gates. docs/DEVICE_TREE_LAYOUT.txt is the compact folder-tree reference.
