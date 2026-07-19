@@ -48,7 +48,9 @@ for file in \
     [[ -f "$file" ]] || fail "required recovery build file is missing: ${file#$top/}"
 done
 
-if [[ -f "$recovery/Android.mk" && \
+if ! grep -qE '^[[:space:]]*TW_INCLUDE_OMAPI[[:space:]]*:=[[:space:]]*true' "$device_dir/BoardConfig.mk"; then
+    fail "TW_INCLUDE_OMAPI must use native fox_14.1 OMAPI support"
+elif [[ -f "$recovery/Android.mk" && \
       -f "$recovery/prebuilt/Android.mk" && \
       -f "$recovery/prebuilt/Android.bp" && \
       -f "$recovery/etc/Android.mk" ]] && \
@@ -72,6 +74,7 @@ fi
 
 if grep -qF 'does not require a pre-wipe super unmap' "$recovery/partitionmanager.cpp" && \
    grep -qF 'update_state == android::snapshot::UpdateState::Merging' "$recovery/partitionmanager.cpp" && \
+   grep -qE '^[[:space:]]*export[[:space:]]+OF_DYNAMIC_FULL_SIZE="?9663676416"?' "$device_dir/vendorsetup.sh" && \
    grep -qE '^[[:space:]]*export[[:space:]]+OF_USE_DMCTL="?1"?' "$device_dir/vendorsetup.sh" && \
    grep -qE '^[[:space:]]*export[[:space:]]+OF_UNBIND_SDCARD_F2FS="?1"?' "$device_dir/vendorsetup.sh" && \
    grep -qF 'TWRP_REQUIRED_MODULES += dmctl' "$recovery/orangefox.mk"; then
@@ -159,10 +162,36 @@ fi
 if grep -qE '^[[:space:]]*TW_EXCLUDE_DEFAULT_USB_INIT[[:space:]]*:=[[:space:]]*true' "$device_dir/BoardConfig.mk" && \
    grep -qE '^[[:space:]]*TW_EXCLUDE_MTP[[:space:]]*:=[[:space:]]*true' "$device_dir/BoardConfig.mk" && \
    grep -qF 'start of_usbdbg' "$device_dir/recovery/root/init.recovery.qcom.rc" && \
-   grep -qF 'setprop sys.usb.config adb' "$device_dir/recovery/root/of_usbdbg.sh"; then
-    pass "stock configfs plain-ADB bring-up"
+   ! grep -qF 'setprop sys.usb.config' "$device_dir/recovery/root/of_usbdbg.sh" && \
+   ! grep -qF '/config/usb_gadget/g1/configs/b.1/f1' "$device_dir/recovery/root/of_usbdbg.sh" && \
+   ! grep -qF 'setprop sys.usb.ffs.ready' "$device_dir/recovery/root/of_usbdbg.sh"; then
+    pass "native configfs transport ownership"
 else
-    fail "stable plain-ADB bring-up is incomplete"
+    fail "device USB preparation overrides the native configfs transport"
+fi
+
+if grep -qE '^[[:space:]]*TW_INCLUDE_FASTBOOTD[[:space:]]*:=[[:space:]]*true' "$device_dir/BoardConfig.mk" && \
+   grep -qE '^[[:space:]]*fastbootd([[:space:]]|\\)' "$device_dir/device.mk" && \
+   grep -qE '^[[:space:]]*bootctrl\.sun\.recovery([[:space:]]|\\)' "$device_dir/device.mk" && \
+   grep -qF 'start boot-hal-1-2' "$device_dir/recovery/root/init.recovery.qcom.rc" && \
+   sed -n '/int GUIAction::enablefastboot/,/^}/p' "$recovery/gui/action.cpp" | grep -qF 'sleep(1);'; then
+    pass "serialized fastbootd USB and boot-control startup"
+else
+    fail "fastbootd USB transition or boot-control startup is incomplete"
+fi
+
+if awk '
+    /^[[:space:]]*(#|$)/ { next }
+    NF < 5 { bad = 1 }
+    $2 == "/misc" && $1 ~ /^\/dev\/block\// { misc = 1 }
+    END { exit (bad || !misc) }
+' "$device_dir/recovery.fstab" && \
+   grep -qF '/dev/block/mapper/vendor ' "$device_dir/twrp.flags" && \
+   grep -qF 'mounttodecrypt' "$device_dir/twrp.flags" && \
+   grep -qF '$(DEVICE_PATH)/twrp.flags:$(TARGET_COPY_OUT_RECOVERY)/root/system/etc/twrp.flags' "$device_dir/device.mk"; then
+    pass "fs_mgr v2 recovery fstab and OrangeFox flags split"
+else
+    fail "recovery fstab cannot provide /misc to BCB/fastbootd or twrp.flags is incomplete"
 fi
 
 usb_controller_triggers="$(grep -R -h --include='*.rc' '^on property:ro.boot.usbcontroller=\*' "$device_dir/recovery/root" | wc -l)"
@@ -255,8 +284,10 @@ else
     fail "OrangeFox settings are not configured for post-decryption /data/recovery load"
 fi
 
-if grep -qF 'AServiceManager_checkService(kVibratorInstance.c_str())' "$recovery/minuitwrp/events.cpp" && \
-   ! grep -qF 'AServiceManager_getService(kVibratorInstance.c_str())' "$recovery/minuitwrp/events.cpp"; then
+if ! grep -qE '^[[:space:]]*TW_SUPPORT_INPUT_AIDL_HAPTICS[[:space:]]*:=[[:space:]]*true' "$device_dir/BoardConfig.mk"; then
+    pass "binder haptics disabled by device tree"
+elif grep -qF 'AServiceManager_checkService(kVibratorInstance.c_str())' "$recovery/minuitwrp/events.cpp" && \
+     ! grep -qF 'AServiceManager_getService(kVibratorInstance.c_str())' "$recovery/minuitwrp/events.cpp"; then
     pass "non-blocking AIDL haptics lookup"
 else
     fail "AIDL haptics still blocks input while waiting for a vibrator service"
@@ -282,11 +313,11 @@ else
     fail "stock recovery module payload is incomplete ($module_count modules)"
 fi
 
-if grep -qF '/dev/block/mapper/vendor ' "$device_dir/recovery.fstab" && \
-   grep -qF 'mounttodecrypt' "$device_dir/recovery.fstab"; then
+if grep -qF '/dev/block/mapper/vendor ' "$device_dir/twrp.flags" && \
+   grep -qF 'mounttodecrypt' "$device_dir/twrp.flags"; then
     pass "working unsuffixed logical-partition mapping"
 else
-    fail "recovery fstab does not match the working logical-partition mapping"
+    fail "OrangeFox flags do not match the working logical-partition mapping"
 fi
 
 if command -v git >/dev/null 2>&1 && [[ -d "$recovery/.git" || -f "$recovery/.git" ]]; then

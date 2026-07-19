@@ -1,178 +1,93 @@
-# OrangeFox for Nothing Phone (3) (Metroid)
+# OrangeFox device tree for Nothing Phone (3)
 
-Recovery-only device tree for the Nothing Phone (3), model A024, targeting
-OrangeFox fox_14.1 directly. The supplied firmware is Android 16 on Qualcomm
-SM8735 (sun), with a 6.6 GKI kernel, dedicated 100 MiB recovery_a/recovery_b
-partitions, Virtual A/B, EROFS logical partitions, and F2FS metadata/userdata.
+Android recovery device tree for the Nothing Phone (3), codenamed `Metroid`.
 
-The tree builds successfully in the official fox_14.1 source. ADB, the recovery
-UI, QSEECom, AIDL KeyMint/Gatekeeper, metadata encryption, device-encrypted
-storage, and the vibrator permission path have been exercised on physical
-hardware. Credential unlock, MTP, fastbootd, installer behavior, slot changes,
-and a complete regression matrix still require validation.
+## Device
 
-## Source setup
+| Item | Value |
+| --- | --- |
+| Device | Nothing Phone (3) |
+| Model | A024 |
+| Codename | Metroid |
+| Platform | Qualcomm SM8735 (`sun`) |
+| Architecture | arm64 |
+| Recovery branch | OrangeFox `fox_14.1` |
+| Partition scheme | A/B, Virtual A/B, dynamic partitions |
+| Recovery partition | 104857600 bytes |
+| Data filesystem | F2FS |
 
-Use OrangeFox's official sync wrapper for a direct OrangeFox build. It starts
-from the supported 14.1 TWRP minimal base, installs the fox_14.1 recovery and
-vendor sources, applies the branch's AIDL Weaver support, and clones native
-se_omapi. Initializing only a plain TWRP manifest does not create a complete
-OrangeFox build tree.
+## Status
 
-    mkdir -p ~/OrangeFox_sync
-    cd ~/OrangeFox_sync
-    git clone https://gitlab.com/OrangeFox/sync.git
-    cd sync
-    ./orangefox_sync.sh --branch 14.1 --path /absolute/path/to/fox_14.1
+| Feature | Status |
+| --- | --- |
+| Boot | Working |
+| Touchscreen | Working |
+| ADB | Working |
+| 120 Hz UI | Working |
+| Battery and CPU temperature | Testing |
+| Power button | Testing |
+| AIDL haptics | Testing |
+| FBE decryption | Testing |
+| Fastbootd | Rebuild required |
 
-Then install the device tree:
-
-    cd /absolute/path/to/fox_14.1
-    mkdir -p device/nothing
-    git clone https://github.com/PHATWalrus/android_device_nothing_Metroid.git device/nothing/Metroid
-
-The optional local_manifests/Metroid.xml contains only the device project.
-OrangeFox's sync tool owns bootable/recovery, system/vold, vendor/recovery,
-and external/se_omapi; the local manifest deliberately does not override them.
-
-## Extract the stock files
-
-The extraction manifest contains 82 exact Metroid firmware inputs, including
-the Android 16 crypto/TEE closure, QSEE RPMB listener plugins, Richtap config,
-and the stock task_profiles.json required by OrangeFox 14.1 logcat.
-Every input is SHA-256 verified. No Xiaomi, OnePlus, Nubia, or other
-reference-device binary is used.
-
-From Windows PowerShell:
-
-    & .\tools\extract-files.ps1 'C:\Users\harsh\Downloads\Compressed\MIO-KITCHEN-4.1.9-v2-win\metroid'
-
-From Linux/WSL:
-
-    bash tools/extract-files.sh /path/to/extracted/metroid
-
-The generated proprietary directory is intentionally visible to Git. Review
-redistribution requirements before publishing firmware-derived files.
-
-## Verify source-side crypto support
-
-Run the helper after syncing:
-
-    bash device/nothing/Metroid/tools/apply-source-patches.sh
-
-On the current official fox_14.1 sync, it should report that AIDL Gatekeeper,
-AIDL Weaver, and native OMAPI packaging are already supplied by the source.
-The reviewed patch files remain as an idempotent fallback for a compatible
-plain TeamWin 14 tree; they are not blindly applied over OrangeFox.
-
-TW_INCLUDE_OMAPI is enabled. OrangeFox builds and starts the OMAPI bridge, while
-Metroid's init starts the secure-element and Thales StrongBox/Weaver services
-only for the JPN SKU, matching the stock VINTF declaration.
-
-## OrangeFox configuration
-
-vendorsetup.sh contains only environment variables that OrangeFox requires to
-be exported before building:
-
-- FOX_BUILD_DEVICE=Metroid
-- FOX_AB_DEVICE=1
-- FOX_VIRTUAL_AB_DEVICE=1
-- FOX_VANILLA_BUILD=1
-- verified aliases for Metroid, metroid, and A024
-
-fox_Metroid.mk contains the supported OF_* make variables: the 20:9 canvas,
-cutout/status-bar geometry, dedicated A/B recovery flag, LZ4 ramdisk,
-prebuilt-kernel declaration, and logical-partition tools.
-
-The tree intentionally does not enable experimental vbmeta patching, guessed
-super sizes, forced metadata wiping, post-format bind mounts, MIUI features,
-KernelSU add-ons, or a fabricated Keymaster 4.1 default. Metroid exposes AIDL
-KeyMint v3, so the old Keymaster-version override would be incorrect.
+MTP is disabled.
 
 ## Build
 
-See `BUILDING.md` for the complete direct OrangeFox setup and troubleshooting
-guide. The short form is:
+Sync the OrangeFox 14.1 source and clone this tree to
+`device/nothing/Metroid`.
 
-Build on a case-sensitive Linux filesystem:
+```bash
+cd ~/fox_14.1
 
-    cd /absolute/path/to/fox_14.1
-    export FOX_BUILD_DEVICE=Metroid
-    source build/envsetup.sh
-    lunch twrp_Metroid-ap2a-eng
-    bash device/nothing/Metroid/tools/apply-source-patches.sh
-    mka recoveryimage 2>&1 | tee build-Metroid.log
+export FOX_BUILD_DEVICE=Metroid
+export CCACHE_DIR=/mnt/ccache
+ccache -M 50G -F 0
 
-Expected artifacts are under:
+source build/envsetup.sh
+lunch twrp_Metroid-ap2a-eng
 
-    out/target/product/Metroid/recovery.img
-    out/target/product/Metroid/OrangeFox-*.img
-    out/target/product/Metroid/OrangeFox-*.zip
+bash device/nothing/Metroid/tools/apply-source-patches.sh
+bash device/nothing/Metroid/tools/verify-orangefox-source.sh
 
-The exact OrangeFox filename is generated by the synced vendor tree. The raw
-recovery image must not exceed 104857600 bytes; an AVB-footed image padded to
-exactly that partition size is valid. It
-must be header v4 with an LZ4 ramdisk and no embedded kernel or DTB, matching
-stock's dedicated recovery image contract.
+mka recoveryimage -j"$(nproc)"
+```
 
-## First-device test and rollback
+The recovery image is written to:
 
-Keep a verified stock recovery image before testing. Because Metroid's stock
-recovery image contains no kernel, fastboot boot recovery.img is not assumed
-to work. On an unlocked device, flash only the current recovery slot:
+```text
+out/target/product/Metroid/recovery.img
+```
 
-    fastboot getvar current-slot
-    fastboot flash recovery_a out/target/product/Metroid/recovery.img
-    # Use recovery_b instead when the active slot is b.
-    fastboot reboot recovery
+## Dirty build
 
-Restore the matching stock slot immediately if recovery does not boot:
+```bash
+mka recoveryimage -j"$(nproc)"
+```
 
-    fastboot flash recovery_a /path/to/stock/recovery.img
-    fastboot reboot
+Run `mka relink_libraries` first after changing recovery C++ sources.
 
-Do not flash boot, vendor_boot, dtbo, super, or vbmeta during the first test.
-Do not use the OrangeFox installer ZIP, format data/metadata, change slots,
-or reflash recovery from the UI until the raw-image boot and mount tests pass.
+## Fastbootd test
 
-## Test matrix
+```bash
+adb reboot fastboot
+fastboot devices
+fastboot getvar is-userspace
+```
 
-1. Boot/UI: 1260x2800 output, 20:9 layout, cutout-safe status bar, brightness,
-   blank/unblank, battery percentage, and no haptic-related crash.
-2. Input: FocalTech touch covers the full panel with correct axes.
-3. USB: ADB shell/push/pull, MTP, sideload, OTG, and role switching.
-4. Partitions: current slot, recovery target, logical EROFS mounts, F2FS
-   metadata, fastbootd, and no writes during snapshot merge.
-5. Decryption: no lock, then PIN, pattern, and password; verify User 0 and
-   secondary-user visibility without modifying data.
-6. OrangeFox: settings persistence, raw image flash target, installer ZIP on
-   both slots, reflash-current-recovery behavior, and vanilla/non-MIUI paths.
-7. Recovery operations: disposable backup/restore and formatting only after
-   all earlier non-destructive tests and stock rollback are proven.
+`is-userspace` should return `yes`.
 
-Collect on every failure:
+## Notes
 
-    adb pull /tmp/recovery.log
-    adb pull /tmp/logcat.log
-    adb pull /tmp/metroid-crypto-init.log
-    adb shell dmesg > dmesg.txt
-    adb shell getprop > getprop.txt
-    adb shell cat /proc/mounts > mounts.txt
-    adb shell ls -l /dev/block/by-name /dev/block/mapper > blocks.txt
-    adb shell ps -A > processes.txt
-    adb shell service list > services.txt
+- The device name is case-sensitive: use `Metroid`.
+- The recovery image contains no kernel or DTB.
+- `TW_INCLUDE_OMAPI` uses the native OrangeFox 14.1 implementation.
+- Proprietary files are intentionally not ignored by Git.
+- Keep a stock recovery image available before flashing test builds.
 
-## Known limits
+## Credits
 
-- Metadata and device-encrypted FBE mount successfully through the stock QSEE,
-  RPMB, KeyMint, Gatekeeper, and keystore2 chain. Credential-encrypted user
-  storage still needs PIN/pattern/password coverage.
-- JPN eSE/OMAPI/Weaver behavior cannot be proven from firmware files alone.
-- Dynamic-partition size and group values are set from the Metroid LP layout.
-- Display, touch, USB, charging, slot changes, OrangeFox installer logic, and
-  recovery reflash behavior require hardware validation.
-- The AIDL vibrator service and Richtap permission path are enabled; UI haptic
-  behavior still needs a cold-boot regression test with the final image.
-
-See docs/BRINGUP_PLAN.md for the evidence, architecture, failure modes, and
-release gates. docs/DEVICE_TREE_LAYOUT.txt is the compact folder-tree reference.
+- [OrangeFox Recovery Project](https://gitlab.com/OrangeFox)
+- [TeamWin Recovery Project](https://github.com/TeamWin)
+- [wisevessel/np3-devtree](https://gitlab.com/wisevessel/np3-devtree)
+- [Farpathan/android_device_nothing_metroid](https://github.com/Farpathan/android_device_nothing_metroid)

@@ -1,25 +1,34 @@
-/system         erofs   /dev/block/mapper/system       flags=display="System";slotselect;logical;fsflags="ro";mounttodecrypt
-/system_ext     erofs   /dev/block/mapper/system_ext   flags=display="System Ext";slotselect;logical;fsflags="ro"
-/product        erofs   /dev/block/mapper/product      flags=display="Product";slotselect;logical;fsflags="ro"
-/vendor         erofs   /dev/block/mapper/vendor       flags=display="Vendor";slotselect;logical;fsflags="ro";mounttodecrypt
-/odm            erofs   /dev/block/mapper/odm          flags=display="ODM";slotselect;logical;fsflags="ro"
-/vendor_dlkm    erofs   /dev/block/mapper/vendor_dlkm  flags=display="Vendor DLKM";slotselect;logical;fsflags="ro";mounttodecrypt
+# Android recovery fstab (v2).
+# <src> <mount_point> <type> <mount_flags> <fs_mgr_flags>
 
-/boot           emmc    /dev/block/by-name/boot         flags=display="Boot";slotselect
-/init_boot      emmc    /dev/block/by-name/init_boot    flags=display="Init Boot";slotselect
-/vendor_boot    emmc    /dev/block/by-name/vendor_boot  flags=display="Vendor Boot";slotselect
-/recovery       emmc    /dev/block/by-name/recovery     flags=display="Recovery";slotselect
-/dtbo           emmc    /dev/block/by-name/dtbo         flags=display="DTBO";slotselect
+system /system erofs ro wait,slotselect,avb=vbmeta_system,logical,first_stage_mount
+system /system ext4 ro wait,slotselect,avb=vbmeta_system,logical,first_stage_mount
+system_ext /system_ext erofs ro wait,slotselect,avb=vbmeta_system,logical,first_stage_mount
+system_ext /system_ext ext4 ro wait,slotselect,avb=vbmeta_system,logical,first_stage_mount
+product /product erofs ro wait,slotselect,avb=vbmeta_system,logical,first_stage_mount
+product /product ext4 ro wait,slotselect,avb=vbmeta_system,logical,first_stage_mount
+vendor /vendor erofs ro wait,slotselect,avb=vbmeta_vendor,logical,first_stage_mount
+vendor /vendor ext4 ro wait,slotselect,avb=vbmeta_vendor,logical,first_stage_mount
+odm /odm erofs ro wait,slotselect,avb=vbmeta_vendor,logical,first_stage_mount
+odm /odm ext4 ro wait,slotselect,avb=vbmeta_vendor,logical,first_stage_mount
+vendor_dlkm /vendor_dlkm erofs ro wait,slotselect,avb=vbmeta_vendor,logical,first_stage_mount
+vendor_dlkm /vendor_dlkm ext4 ro wait,slotselect,avb=vbmeta_vendor,logical,first_stage_mount
 
-/metadata       f2fs    /dev/block/by-name/metadata             flags=display="Metadata";wipeingui
-/data           f2fs    /dev/block/bootdevice/by-name/userdata  flags=display="Data";fileencryption=aes-256-xts:aes-256-cts:v2+inlinecrypt_optimized+wrappedkey_v0;keydirectory=/metadata/vold/metadata_encryption;wrappedkey
-/persist        ext4    /dev/block/bootdevice/by-name/persist   flags=display="Persist";backup=1
-/misc           emmc    /dev/block/bootdevice/by-name/misc      flags=display="Misc"
+/dev/block/by-name/boot /boot emmc defaults slotselect
+/dev/block/by-name/init_boot /init_boot emmc defaults slotselect
+/dev/block/by-name/vendor_boot /vendor_boot emmc defaults slotselect
+/dev/block/by-name/recovery /recovery emmc defaults slotselect
+/dev/block/by-name/dtbo /dtbo emmc defaults slotselect
 
-/vendor/firmware_mnt  vfat  /dev/block/bootdevice/by-name/modem  flags=display="Modem";slotselect
-/vendor/dsp           ext4  /dev/block/bootdevice/by-name/dsp    flags=display="DSP";slotselect
-/super          emmc   /dev/block/bootdevice/by-name/super       flags=display="Super";backup=1
-/nt_log         ext4   /dev/block/by-name/nt_log                  flags=display="NT Log";backup=1
-/qmcs           vfat   /dev/block/bootdevice/by-name/qmcs         flags=display="QMCS"
-/spunvm         vfat   /dev/block/bootdevice/by-name/spunvm       flags=display="SPUNVM"
-/usb_otg        vfat   /devices/platform/soc/*.ssusb/*.dwc3/xhci-hcd.*.auto  flags=display="USB OTG";storage;wipeingui;removable
+/dev/block/by-name/metadata /metadata f2fs noatime,nosuid,nodev,discard wait,check,formattable,first_stage_mount,sync
+/dev/block/bootdevice/by-name/userdata /data f2fs noatime,nosuid,nodev,discard,reserve_root=131072,resgid=1065,fsync_mode=nobarrier,inlinecrypt,atgc,checkpoint_merge,compress_cache latemount,wait,check,formattable,fileencryption=aes-256-xts:aes-256-cts:v2+inlinecrypt_optimized+wrappedkey_v0,keydirectory=/metadata/vold/metadata_encryption,metadata_encryption=aes-256-xts:wrappedkey_v0,quota,reservedsize=128M,sysfs_path=/sys/devices/platform/soc/1d84000.ufshc,fscompress,checkpoint=fs
+/dev/block/bootdevice/by-name/persist /persist ext4 noatime,nosuid,nodev,barrier=1 wait
+/dev/block/bootdevice/by-name/misc /misc emmc defaults defaults
+
+/dev/block/bootdevice/by-name/modem /vendor/firmware_mnt vfat ro wait,slotselect
+/dev/block/bootdevice/by-name/dsp /vendor/dsp ext4 ro,nosuid,nodev,barrier=1 wait,slotselect
+/dev/block/by-name/nt_log /nt_log ext4 noatime,nosuid,nodev,discard,barrier=1 wait,check,formattable,nofail
+/dev/block/bootdevice/by-name/qmcs /qmcs vfat noatime,nosuid,nodev wait,check,formattable
+/dev/block/bootdevice/by-name/spunvm /spunvm vfat noatime,nosuid,nodev wait,check,formattable
+/dev/block/bootdevice/by-name/super /super emmc defaults defaults
+/devices/platform/soc/*.ssusb/*.dwc3/xhci-hcd.*.auto* /usb_otg vfat nosuid,nodev wait,voldmanaged=usbotg:auto

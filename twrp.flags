@@ -1,0 +1,25 @@
+/system erofs /dev/block/mapper/system flags=display="System";slotselect;logical;fsflags="ro";mounttodecrypt
+/system_ext erofs /dev/block/mapper/system_ext flags=display="System Ext";slotselect;logical;fsflags="ro"
+/product erofs /dev/block/mapper/product flags=display="Product";slotselect;logical;fsflags="ro"
+/vendor erofs /dev/block/mapper/vendor flags=display="Vendor";slotselect;logical;fsflags="ro";mounttodecrypt
+/odm erofs /dev/block/mapper/odm flags=display="ODM";slotselect;logical;fsflags="ro"
+/vendor_dlkm erofs /dev/block/mapper/vendor_dlkm flags=display="Vendor DLKM";slotselect;logical;fsflags="ro";mounttodecrypt
+
+/boot emmc /dev/block/by-name/boot flags=display="Boot";slotselect
+/init_boot emmc /dev/block/by-name/init_boot flags=display="Init Boot";slotselect
+/vendor_boot emmc /dev/block/by-name/vendor_boot flags=display="Vendor Boot";slotselect
+/recovery emmc /dev/block/by-name/recovery flags=display="Recovery";slotselect
+/dtbo emmc /dev/block/by-name/dtbo flags=display="DTBO";slotselect
+
+/metadata f2fs /dev/block/by-name/metadata flags=display="Metadata";wipeingui
+/data f2fs /dev/block/bootdevice/by-name/userdata flags=display="Data";fileencryption=aes-256-xts:aes-256-cts:v2+inlinecrypt_optimized+wrappedkey_v0;keydirectory=/metadata/vold/metadata_encryption;wrappedkey
+/persist ext4 /dev/block/bootdevice/by-name/persist flags=display="Persist";backup=1
+/misc emmc /dev/block/bootdevice/by-name/misc flags=display="Misc"
+
+/vendor/firmware_mnt vfat /dev/block/bootdevice/by-name/modem flags=display="Modem";slotselect
+/vendor/dsp ext4 /dev/block/bootdevice/by-name/dsp flags=display="DSP";slotselect
+/super emmc /dev/block/bootdevice/by-name/super flags=display="Super";backup=1
+/nt_log ext4 /dev/block/by-name/nt_log flags=display="NT Log";backup=1
+/qmcs vfat /dev/block/bootdevice/by-name/qmcs flags=display="QMCS"
+/spunvm vfat /dev/block/bootdevice/by-name/spunvm flags=display="SPUNVM"
+/usb_otg vfat /devices/platform/soc/*.ssusb/*.dwc3/xhci-hcd.*.auto* flags=display="USB OTG";storage;wipeingui;removable

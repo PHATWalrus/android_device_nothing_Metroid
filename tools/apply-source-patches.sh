@@ -46,6 +46,12 @@ has_native_omapi_packaging() {
         grep -q "LOCAL_MODULE := se_omapi.xml" "$recovery/etc/Android.mk"
 }
 
+board_flag_is_true() {
+    local flag="$1"
+    grep -qE "^[[:space:]]*${flag}[[:space:]]*:=[[:space:]]*true([[:space:]]*(#.*)?)?$" \
+        "$device_dir/BoardConfig.mk"
+}
+
 # TeamWin 14 fallback patches.
 if grep -q "AidlIGatekeeper" "$top/system/vold/Decrypt.cpp"; then
     echo "provided by source: AIDL Gatekeeper"
@@ -90,7 +96,9 @@ else
 fi
 
 haptics_lookup_patch="$device_dir/patches/bootable_recovery/0003-recovery-use-nonblocking-vibrator-lookup.patch"
-if grep -qF 'AServiceManager_checkService(kVibratorInstance.c_str())' "$top/bootable/recovery/minuitwrp/events.cpp"; then
+if ! board_flag_is_true TW_SUPPORT_INPUT_AIDL_HAPTICS; then
+    echo "provided by device tree: binder haptics disabled"
+elif grep -qF 'AServiceManager_checkService(kVibratorInstance.c_str())' "$top/bootable/recovery/minuitwrp/events.cpp"; then
     echo "provided by source: non-blocking vibrator lookup"
 else
     apply_patch_once "$top/bootable/recovery" "$haptics_lookup_patch"
@@ -103,17 +111,20 @@ else
     apply_patch_once "$top/bootable/recovery" "$gui_poll_patch"
 fi
 
-# Verify native OrangeFox OMAPI support.
-omapi_patch="$device_dir/patches/bootable_recovery/0001-recovery-package-native-OMAPI-on-14.1.patch"
-if has_native_omapi_packaging "$top/bootable/recovery"; then
-    echo "provided by source: native OMAPI packaging"
-elif git -C "$top/bootable/recovery" apply --reverse --check "$omapi_patch" >/dev/null 2>&1; then
-    echo "already applied: ${omapi_patch#$device_dir/}"
-elif git -C "$top/bootable/recovery" apply --check "$omapi_patch" >/dev/null 2>&1; then
-    apply_patch_once "$top/bootable/recovery" "$omapi_patch"
+usb_transition_patch="$device_dir/patches/bootable_recovery/0006-recovery-wait-for-usb-gadget-teardown.patch"
+if sed -n '/int GUIAction::enablefastboot/,/^}/p' "$top/bootable/recovery/gui/action.cpp" | grep -qF 'sleep(1);'; then
+    echo "provided by source: serialized USB gadget transition"
 else
-    echo "OMAPI packaging is partial or this is a diverged recovery source; refusing to force the TeamWin fallback patch." >&2
-    echo "Expected a complete OrangeFox fox_14.1 recovery checkout plus external/se_omapi/Android.bp." >&2
+    apply_patch_once "$top/bootable/recovery" "$usb_transition_patch"
+fi
+
+# OMAPI is source-native on fox_14.1; do not patch its build files.
+if ! board_flag_is_true TW_INCLUDE_OMAPI; then
+    echo "provided by device tree: OMAPI disabled"
+elif has_native_omapi_packaging "$top/bootable/recovery"; then
+    echo "provided by source: native OMAPI packaging"
+else
+    echo "Native OMAPI packaging is absent or partial; source patching is disabled for this feature." >&2
     echo "Re-sync bootable/recovery, vendor/recovery, and external/se_omapi with the official OrangeFox fox_14.1 sync, then rerun this helper." >&2
     exit 1
 fi

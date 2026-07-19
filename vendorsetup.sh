@@ -31,10 +31,14 @@ if [[ "${requested_device,,}" == "${FDEVICE,,}" || "${FOX_BUILD_DEVICE,,}" == "$
     export TW_DEFAULT_LANGUAGE="en"
     export LC_ALL="C"
     export ALLOW_MISSING_DEPENDENCIES=true
+    export USE_CCACHE="1"
+    export CC_WRAPPER="/usr/bin/ccache"
+    export CCACHE_DIR="/mnt/ccache"
     export FOX_AB_DEVICE="1"
     export OF_FIX_OTA_UPDATE_MANUAL_FLASH_ERROR=1
     export FOX_VIRTUAL_AB_DEVICE="1"
     export FOX_VANILLA_BUILD="1"
+    export OF_DYNAMIC_FULL_SIZE="9663676416"
     export OF_UNBIND_SDCARD_F2FS="1"
     export OF_USE_DMCTL="1"
     export OF_USE_MAGISKBOOT=1

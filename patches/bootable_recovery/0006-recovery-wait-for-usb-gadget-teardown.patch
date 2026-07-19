@@ -1,0 +1,19 @@
+diff --git a/gui/action.cpp b/gui/action.cpp
+index aea547ce..b8fbf2f0 100644
+--- a/gui/action.cpp
++++ b/gui/action.cpp
+@@ -2962,12 +2962,14 @@ int GUIAction::batchfolderoperation(std::string arg __unused) {
+ 
+ int GUIAction::enableadb(std::string arg __unused) {
+ 	android::base::SetProperty("sys.usb.config", "none");
++	::sleep(1);
+ 	android::base::SetProperty("sys.usb.config", "adb");
+ 	return 0;
+ }
+ 
+ int GUIAction::enablefastboot(std::string arg __unused) {
+ 	android::base::SetProperty("sys.usb.config", "none");
++	::sleep(1);
+ 	android::base::SetProperty("sys.usb.config", "fastboot");
+ 	return 0;
+ }
